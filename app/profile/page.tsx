@@ -29,38 +29,75 @@ export default function ProfilePage() {
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [errorV, setErrorV] = useState(false);
+  const [loadingStatus, setLoadingStatus] = useState("กำลังเชื่อมต่อระบบ...");
 
   useEffect(() => {
+    let mounted = true;
+
     const fetchProfile = async () => {
       setLoading(true);
       setErrorV(false);
-      const supabase = createClient();
-      if (!supabase) return;
+      setLoadingStatus("กำลังเริ่มต้น...");
 
-      const { data: { user } } = await supabase.auth.getUser();
+      try {
+        // Global Timeout
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("Timeout")), 10000)
+        );
 
-      if (!user) {
-        router.push("/login");
-        return;
+        const executionPromise = (async () => {
+          const supabase = createClient();
+          if (!supabase) throw new Error("Supabase client init failed");
+
+          setLoadingStatus("กำลังตรวจสอบชื่อผู้ใช้...");
+          const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+          if (authError) throw authError;
+          if (!user) {
+            router.push("/login");
+            return;
+          }
+
+          setLoadingStatus("กำลังดึงข้อมูลโปรไฟล์...");
+          const { data, error } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', user.id)
+            .single();
+
+          if (error) {
+            console.error("Profile fetch error:", error);
+            // Don't throw here, treating missing profile as a recoverable state
+            return null;
+          }
+          return data;
+        })();
+
+        // Race between execution and timeout
+        const result = await Promise.race([executionPromise, timeoutPromise]);
+
+        if (mounted) {
+          if (result === null || result === undefined) {
+            // Profile missing or fetch error
+            setErrorV(true);
+          } else {
+            setProfile(result);
+          }
+        }
+
+      } catch (err: any) {
+        if (mounted) {
+          console.error("Profile page critical error:", err);
+          setLoadingStatus(`เกิดข้อผิดพลาด: ${err.message}`);
+          setErrorV(true); // Force show repair UI
+        }
+      } finally {
+        if (mounted) setLoading(false);
       }
-
-      // Fetch Profile Details
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single();
-
-      if (error || !data) {
-        console.error("Fetch profile error:", error);
-        setErrorV(true);
-      } else {
-        setProfile(data);
-      }
-      setLoading(false);
     };
 
     fetchProfile();
+    return () => { mounted = false };
   }, [router]);
 
   const handleLogout = async () => {
@@ -75,8 +112,18 @@ export default function ProfilePage() {
   if (loading) {
     return (
       <AppShell>
-        <div className="min-h-screen flex items-center justify-center">
-          <p className="text-muted-foreground">กำลังโหลดข้อมูล...</p>
+        <div className="min-h-screen flex flex-col items-center justify-center p-4">
+          <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mb-4" />
+          <p className="text-muted-foreground font-medium mb-6">{loadingStatus}</p>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => window.location.reload()}
+            className="text-xs"
+          >
+            โหลดนานเกินไป? คลิกเพื่อลองใหม่
+          </Button>
         </div>
       </AppShell>
     );
