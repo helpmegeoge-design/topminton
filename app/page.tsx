@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { useEffect, useState } from "react";
+import { AnimatedList, AnimatedItem } from "@/components/ui/animated-list";
 
 // Fallback mock data
 const mockCourts = [
@@ -277,15 +278,22 @@ export default function HomePage() {
               ดูทั้งหมด
             </Link>
           </div>
-          <div className="space-y-3">
-            {isLoading ? (
-              <div className="py-8 text-center text-muted-foreground text-sm">กำลังโหลดข้อมูล...</div>
-            ) : (
-              courts.map((court) => (
-                <CourtCard key={court.id} {...court} />
-              ))
-            )}
-          </div>
+
+          {isLoading ? (
+            <div className="space-y-4">
+              {[1, 2, 3].map(i => (
+                <div key={i} className="h-28 w-full bg-muted animate-pulse rounded-2xl" />
+              ))}
+            </div>
+          ) : (
+            <AnimatedList className="space-y-3">
+              {courts.map((court) => (
+                <AnimatedItem key={court.id}>
+                  <CourtCard {...court} />
+                </AnimatedItem>
+              ))}
+            </AnimatedList>
+          )}
         </section>
       </div>
     </AppShell>
