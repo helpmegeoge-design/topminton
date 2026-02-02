@@ -106,14 +106,37 @@ export default function HomePage() {
 
       // 2. Fetch Party Count for Today
       try {
-        const todayStr = today.toISOString().split('T')[0];
-        const { count, error } = await supabase
-          .from('parties')
-          .select('*', { count: 'exact', head: true })
-          .eq('date', todayStr);
+        const now = new Date();
+        // Force Thailand Timezone for correct date string
+        const bangkokDate = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Bangkok" }));
+        const dateStr = bangkokDate.getFullYear() + '-' +
+          String(bangkokDate.getMonth() + 1).padStart(2, '0') + '-' +
+          String(bangkokDate.getDate()).padStart(2, '0');
 
-        if (!error) {
-          setPartyCount(count || 0);
+        const hour = String(bangkokDate.getHours()).padStart(2, '0');
+        const minute = String(bangkokDate.getMinutes()).padStart(2, '0');
+        const currentTimeStr = `${hour}:${minute}`;
+
+        // Fetch parties for today
+        const { data: parties, error } = await supabase
+          .from('parties')
+          .select('id, start_time')
+          .eq('date', dateStr);
+
+        if (!error && parties) {
+          // Filter: only future parties
+          // Time comparison
+          const upcoming = parties.filter(p => {
+            // Handle if DB time has seconds (e.g., 18:00:00)
+            // Use p.start_time instead of p.time
+            const partyTime = p.start_time.length > 5 ? p.start_time.substring(0, 5) : p.start_time;
+            return partyTime > currentTimeStr;
+          });
+
+          console.log(`Checking parties for ${dateStr} at ${currentTimeStr}`);
+          console.log(`Total found: ${parties.length}, Upcoming: ${upcoming.length}`);
+
+          setPartyCount(upcoming.length);
         }
       } catch (e) { console.error("Party count error", e); }
 
