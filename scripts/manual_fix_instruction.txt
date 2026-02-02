@@ -1,0 +1,24 @@
+const { createClient } = require('@supabase/supabase-js');
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+);
+
+async function run() {
+  // Try to RPC first if we could, but we can't easily run DDL via client unless we use a specific rpc function if exists.
+  // Actually, the error said 'Could not find ... in schema cache'. This might be client side caching OR server side.
+  // But usually reload works.
+  // The error implies the column might NOT exist.
+
+  // We can't run DDL 'ALTER TABLE' from JS client directly without a helpful RPC.
+  // Let's assume user cannot run psql.
+  
+  // We will instead try to use the 'manage' API via a specialized RPC if we had it, but we don't.
+  // Wait, I previously ran a SQL file migration via psql command but it failed with 'psql not found'.
+  
+  console.log('Please use the Supabase Dashboard SQL Editor to run this:');
+  console.log('ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS short_id TEXT UNIQUE;');
+}
+
+run();

@@ -1,0 +1,510 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  /* Topminton Brand Colors - Cute 3D Cartoon & Mascot Style */
+  --background: #FFF8F0;
+  --foreground: #3D3D3D;
+  --card: #FFFFFF;
+  --card-foreground: #3D3D3D;
+  --popover: #FFFFFF;
+  --popover-foreground: #3D3D3D;
+  
+  /* Primary Orange - Warm & Friendly */
+  --primary: #FF9500;
+  --primary-foreground: #FFFFFF;
+  --primary-light: rgba(255, 149, 0, 0.12);
+  --primary-glass: rgba(255, 149, 0, 0.08);
+  
+  /* Secondary & Muted - Cream/Beige tones */
+  --secondary: #FFF5E6;
+  --secondary-foreground: #3D3D3D;
+  --muted: #F5EDE4;
+  --muted-foreground: #8B8B8B;
+  
+  /* Accent Colors - Soft Pastels */
+  --accent: #FFF0D9;
+  --accent-foreground: #FF9500;
+  --accent-gold: #FFD93D;
+  --accent-red: #FF6B6B;
+  --accent-green: #6BCB77;
+  --accent-orange: #FF9500;
+  --accent-cyan: #4ECDC4;
+  --accent-pink: #FFB6C1;
+  --accent-blue: #74B9FF;
+  
+  /* Level Badge Colors */
+  --level-beginner: #FF9500;
+  --level-bg: #31A24C;
+  --level-normal: #F7B928;
+  --level-strong: #F5793A;
+  --level-pro: #FA383E;
+  --level-champion: #8B5CF6;
+  
+  /* System Colors */
+  --destructive: #FA383E;
+  --destructive-foreground: #FFFFFF;
+  --border: #E4E6EB;
+  --input: #F0F2F5;
+  --ring: #FF9500;
+  
+  /* Glass Effect */
+  --glass-bg: rgba(255, 255, 255, 0.72);
+  --glass-border: rgba(255, 255, 255, 0.2);
+  
+  /* Charts */
+  --chart-1: #FF9500;
+  --chart-2: #31A24C;
+  --chart-3: #F7B928;
+  --chart-4: #F5793A;
+  --chart-5: #FA383E;
+  
+  /* Radius - iOS 26 Style */
+  --radius: 1rem;
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.25rem;
+  --radius-2xl: 1.5rem;
+  --radius-3xl: 2rem;
+  
+  /* Sidebar */
+  --sidebar: #FFFFFF;
+  --sidebar-foreground: #1A1A1A;
+  --sidebar-primary: #FF9500;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #FFF5E6;
+  --sidebar-accent-foreground: #FF9500;
+  --sidebar-border: #E4E6EB;
+  --sidebar-ring: #FF9500;
+}
+
+.dark {
+  --background: #18191A;
+  --foreground: #E4E6EB;
+  --card: rgba(36, 37, 38, 0.9);
+  --card-foreground: #E4E6EB;
+  --popover: rgba(36, 37, 38, 0.95);
+  --popover-foreground: #E4E6EB;
+  --primary: #FF9500;
+  --primary-foreground: #FFFFFF;
+  --primary-light: rgba(255, 149, 0, 0.15);
+  --secondary: #3A3B3C;
+  --secondary-foreground: #E4E6EB;
+  --muted: #3A3B3C;
+  --muted-foreground: #B0B3B8;
+  --accent: rgba(255, 149, 0, 0.15);
+  --accent-foreground: #FF9500;
+  --destructive: #FA383E;
+  --destructive-foreground: #FFFFFF;
+  --border: #3E4042;
+  --input: #3A3B3C;
+  --ring: #FF9500;
+  --glass-bg: rgba(36, 37, 38, 0.72);
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --chart-1: #FF9500;
+  --chart-2: #31A24C;
+  --chart-3: #F7B928;
+  --chart-4: #F5793A;
+  --chart-5: #FA383E;
+  --sidebar: #242526;
+  --sidebar-foreground: #E4E6EB;
+  --sidebar-primary: #FF9500;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: rgba(255, 149, 0, 0.15);
+  --sidebar-accent-foreground: #FF9500;
+  --sidebar-border: #3E4042;
+  --sidebar-ring: #FF9500;
+}
+
+@theme inline {
+  /* Thai-compatible fonts */
+  --font-sans: 'Prompt', 'Geist', system-ui, sans-serif;
+  --font-mono: 'Geist Mono', monospace;
+  
+  /* Colors */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  
+  /* Custom Brand Colors */
+  --color-primary-light: var(--primary-light);
+  --color-primary-glass: var(--primary-glass);
+  --color-accent-gold: var(--accent-gold);
+  --color-accent-red: var(--accent-red);
+  --color-accent-green: var(--accent-green);
+  --color-accent-orange: var(--accent-orange);
+  --color-accent-cyan: var(--accent-cyan);
+  
+  /* Level Colors */
+  --color-level-beginner: var(--level-beginner);
+  --color-level-bg: var(--level-bg);
+  --color-level-normal: var(--level-normal);
+  --color-level-strong: var(--level-strong);
+  --color-level-pro: var(--level-pro);
+  --color-level-champion: var(--level-champion);
+  
+  /* Glass */
+  --color-glass-bg: var(--glass-bg);
+  --color-glass-border: var(--glass-border);
+  
+  /* Charts */
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  
+  /* Radius - iOS 26 Style */
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+  --radius-xl: var(--radius-xl);
+  --radius-2xl: var(--radius-2xl);
+  --radius-3xl: var(--radius-3xl);
+  
+  /* Sidebar */
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  
+  /* iOS Safe Area */
+  .safe-area-top {
+    padding-top: env(safe-area-inset-top);
+  }
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+@layer components {
+  /* Puffy 3D Card Effect - Cute Mascot Style */
+  .puffy-card {
+    background: var(--card);
+    border-radius: 1.25rem;
+    box-shadow: 
+      0 4px 0 0 rgba(0, 0, 0, 0.05),
+      0 8px 16px -4px rgba(0, 0, 0, 0.08),
+      inset 0 2px 0 0 rgba(255, 255, 255, 0.8);
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    transition: all 0.2s ease;
+  }
+  
+  .puffy-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 
+      0 6px 0 0 rgba(0, 0, 0, 0.05),
+      0 12px 24px -4px rgba(0, 0, 0, 0.1),
+      inset 0 2px 0 0 rgba(255, 255, 255, 0.8);
+  }
+  
+  .puffy-card:active {
+    transform: translateY(0);
+    box-shadow: 
+      0 2px 0 0 rgba(0, 0, 0, 0.05),
+      0 4px 8px -2px rgba(0, 0, 0, 0.08),
+      inset 0 2px 0 0 rgba(255, 255, 255, 0.8);
+  }
+  
+  /* Puffy Button - 3D Candy Style */
+  .puffy-button {
+    background: linear-gradient(180deg, var(--primary) 0%, #E68600 100%);
+    border-radius: 1rem;
+    box-shadow: 
+      0 4px 0 0 #CC7A00,
+      0 6px 12px -2px rgba(255, 149, 0, 0.4),
+      inset 0 2px 0 0 rgba(255, 255, 255, 0.3);
+    transition: all 0.15s ease;
+  }
+  
+  .puffy-button:active {
+    transform: translateY(2px);
+    box-shadow: 
+      0 2px 0 0 #CC7A00,
+      0 3px 6px -1px rgba(255, 149, 0, 0.4),
+      inset 0 2px 0 0 rgba(255, 255, 255, 0.3);
+  }
+
+  /* Glass Card Effect - iOS 26 Style */
+  .glass-card {
+    background: var(--glass-bg);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--glass-border);
+  }
+  
+  .glass-card-solid {
+    background: var(--card);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+  
+  /* Level Badges */
+  .badge-beginner {
+    background: var(--level-beginner);
+    color: white;
+  }
+  .badge-bg {
+    background: var(--level-bg);
+    color: white;
+  }
+  .badge-normal {
+    background: var(--level-normal);
+    color: white;
+  }
+  .badge-strong {
+    background: var(--level-strong);
+    color: white;
+  }
+  .badge-pro {
+    background: var(--level-pro);
+    color: white;
+  }
+  .badge-champion {
+    background: var(--level-champion);
+    color: white;
+  }
+  
+  /* Bottom Navigation */
+  .bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: var(--glass-bg);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-top: 1px solid var(--border);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  
+  /* iOS-style touch feedback */
+  .tap-highlight {
+    -webkit-tap-highlight-color: transparent;
+  }
+  
+  .tap-highlight:active {
+    opacity: 0.7;
+    transform: scale(0.98);
+    transition: all 0.1s ease;
+  }
+  
+  /* Notification dot */
+  .notification-dot {
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    width: 8px;
+    height: 8px;
+    background: var(--accent-red);
+    border-radius: 50%;
+    border: 2px solid var(--background);
+  }
+  
+  /* Hide scrollbar but allow scrolling */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  
+  /* Custom Animations */
+  .animate-slide-up {
+    animation: slideUp 0.3s ease-out;
+  }
+  
+  .animate-slide-down {
+    animation: slideDown 0.3s ease-out;
+  }
+  
+  .animate-fade-in {
+    animation: fadeIn 0.2s ease-out;
+  }
+  
+  .animate-scale-in {
+    animation: scaleIn 0.2s ease-out;
+  }
+  
+  .animate-bounce-in {
+    animation: bounceIn 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  }
+  
+  .animate-pulse-soft {
+    animation: pulseSoft 2s ease-in-out infinite;
+  }
+  
+  .animate-shimmer {
+    animation: shimmer 1.5s ease-in-out infinite;
+    background: linear-gradient(90deg, var(--muted) 25%, var(--background) 50%, var(--muted) 75%);
+    background-size: 200% 100%;
+  }
+  
+  .animate-float {
+    animation: float 3s ease-in-out infinite;
+  }
+  
+  .animate-glow {
+    animation: glow 2s ease-in-out infinite;
+  }
+  
+  .animate-flip {
+    animation: flip 0.6s ease-in-out;
+    transform-style: preserve-3d;
+  }
+  
+  .animate-confetti {
+    animation: confetti 1s ease-out forwards;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes bounceIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+  70% {
+    transform: scale(0.9);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes pulseSoft {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes glow {
+  0%, 100% {
+    box-shadow: 0 0 5px var(--primary), 0 0 10px var(--primary);
+  }
+  50% {
+    box-shadow: 0 0 20px var(--primary), 0 0 30px var(--primary);
+  }
+}
+
+@keyframes flip {
+  0% {
+    transform: perspective(400px) rotateY(0);
+  }
+  50% {
+    transform: perspective(400px) rotateY(90deg);
+  }
+  100% {
+    transform: perspective(400px) rotateY(0);
+  }
+}
+
+@keyframes confetti {
+  0% {
+    transform: translateY(0) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-200px) rotate(720deg);
+    opacity: 0;
+  }
+}
