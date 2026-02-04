@@ -298,34 +298,41 @@ export default function CostCalculatorPage() {
                     .from('cost_calculator_sessions')
                     .select('state')
                     .eq('user_id', user.id)
-                    .single();
+                    .maybeSingle();
 
                 if (data?.state) {
                     const s = data.state;
-                    if (s.courtPrice !== undefined) setCourtPrice(s.courtPrice);
 
-                    if (s.otherPrice !== undefined) setOtherPrice(s.otherPrice);
-                    if (s.playerCount !== undefined) setPlayerCount(s.playerCount);
-                    if (s.players !== undefined) setPlayers(s.players);
-                    if (s.playerInput !== undefined) setPlayerInput(s.playerInput);
-                    if (s.hours !== undefined) setHours(s.hours);
-                    if (s.courtCount !== undefined) setCourtCount(s.courtCount);
-                    if (s.shuttleCount !== undefined) setShuttleCount(s.shuttleCount);
-                    if (s.shuttleRate !== undefined) setShuttleRate(s.shuttleRate);
-                    if (s.discount !== undefined) setDiscount(s.discount);
-                    if (s.shuttlePerMatchDivisor !== undefined) setShuttlePerMatchDivisor(s.shuttlePerMatchDivisor);
-                    if (s.mode !== undefined) setMode(s.mode);
+                    // Only restore if the session has meaningful data (not just a menu state)
+                    const hasData = (s.players && s.players.length > 0) ||
+                        (s.courtPrice || s.shuttlePrice || s.otherPrice);
 
-                    if (s.otCourtPrice !== undefined) setOtCourtPrice(s.otCourtPrice);
-                    if (s.otHours !== undefined) setOtHours(s.otHours);
-                    if (s.otCourtCount !== undefined) setOtCourtCount(s.otCourtCount);
-                    if (s.otShuttlePrice !== undefined) setOtShuttlePrice(s.otShuttlePrice);
-                    if (s.otShuttleCount !== undefined) setOtShuttleCount(s.otShuttleCount);
-                    if (s.otShuttleRate !== undefined) setOtShuttleRate(s.otShuttleRate);
-                    if (s.otOtherPrice !== undefined) setOtOtherPrice(s.otOtherPrice);
-                    if (s.otDiscount !== undefined) setOtDiscount(s.otDiscount);
+                    if (hasData && s.mode && s.mode !== 'menu') {
+                        if (s.courtPrice !== undefined) setCourtPrice(s.courtPrice);
+                        if (s.shuttlePrice !== undefined) setShuttlePrice(s.shuttlePrice);
+                        if (s.otherPrice !== undefined) setOtherPrice(s.otherPrice);
+                        if (s.playerCount !== undefined) setPlayerCount(s.playerCount);
+                        if (s.players !== undefined) setPlayers(s.players);
+                        if (s.playerInput !== undefined) setPlayerInput(s.playerInput);
+                        if (s.hours !== undefined) setHours(s.hours);
+                        if (s.courtCount !== undefined) setCourtCount(s.courtCount);
+                        if (s.shuttleCount !== undefined) setShuttleCount(s.shuttleCount);
+                        if (s.shuttleRate !== undefined) setShuttleRate(s.shuttleRate);
+                        if (s.discount !== undefined) setDiscount(s.discount);
+                        if (s.shuttlePerMatchDivisor !== undefined) setShuttlePerMatchDivisor(s.shuttlePerMatchDivisor);
+                        if (s.mode !== undefined) setMode(s.mode);
 
-                    if (s.mode && s.mode !== 'menu') toast.success("เรียกคืนข้อมูลล่าสุดเรียบร้อย");
+                        if (s.otCourtPrice !== undefined) setOtCourtPrice(s.otCourtPrice);
+                        if (s.otHours !== undefined) setOtHours(s.otHours);
+                        if (s.otCourtCount !== undefined) setOtCourtCount(s.otCourtCount);
+                        if (s.otShuttlePrice !== undefined) setOtShuttlePrice(s.otShuttlePrice);
+                        if (s.otShuttleCount !== undefined) setOtShuttleCount(s.otShuttleCount);
+                        if (s.otShuttleRate !== undefined) setOtShuttleRate(s.otShuttleRate);
+                        if (s.otOtherPrice !== undefined) setOtOtherPrice(s.otOtherPrice);
+                        if (s.otDiscount !== undefined) setOtDiscount(s.otDiscount);
+
+                        toast.success("เรียกคืนข้อมูลล่าสุดเรียบร้อย");
+                    }
                 }
             } catch (error) {
                 console.error("Error loading session:", error);
@@ -390,61 +397,69 @@ export default function CostCalculatorPage() {
         setOtShuttlePrice(s > 0 ? s.toString() : "");
     }, [otShuttleCount, otShuttleRate]);
 
+    const resetAllState = () => {
+        setMode('menu');
+        setPlayers([]);
+        setPlayerInput("");
+        setCourtPrice("");
+        setShuttlePrice("");
+        setOtherPrice("");
+        setDiscount("");
+        setHours("");
+        setCourtCount("");
+        setShuttleCount("");
+        setShuttleRate("");
+        setShowBill(false);
+        setOtCourtPrice("");
+        setOtHours("");
+        setOtCourtCount("");
+        setOtShuttlePrice("");
+        setOtShuttleCount("");
+        setOtShuttleRate("");
+        setOtOtherPrice("");
+        setOtDiscount("");
+        setSelectedPlayers([]);
+        setShowIndividualBill(false);
+    };
+
     const handleFinish = async () => {
         setIsDownloading(true);
         try {
             if (!supabase) {
-                // If no supabase, just generate image
-                await handleDownloadImage();
+                resetAllState();
+                setIsDownloading(false);
                 return;
             }
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) {
-                toast.error("กรุณาเข้าสู่ระบบเพื่อบันทึกประวัติ");
-                // Allow download anyway if not logged in? Maybe just alert.
-            }
 
-            // Save to history if logged in
+            const { data: { user } } = await supabase.auth.getUser();
+
+            // 1. Save to History if logged in and not viewing history
             if (user && !isViewingHistory) {
                 const currentState = getCurrentState();
-                // 1. Save to History
                 await supabase.from('cost_calculator_history').insert({
                     user_id: user.id,
                     summary: currentState
                 });
 
-                // 2. Clear Session
-                await supabase.from('cost_calculator_sessions').delete().eq('user_id', user.id);
-                toast.success("บันทึกประวัติเรียบร้อย");
+                // 2. Clear Session in DB - Using upsert with empty state to be sure
+                await supabase.from('cost_calculator_sessions').upsert({
+                    user_id: user.id,
+                    state: { mode: 'menu' }, // Reset to menu state
+                    updated_at: new Date().toISOString()
+                });
+
+                toast.success("บันทึกประวัติและล้างข้อมูลเรียบร้อย");
             }
 
-            // Generate Image
-            await handleDownloadImage();
-
-            // Reset Logic (Optional - User might want to keep looking?)
-            // If viewing history, we don't reset.
-            if (!isViewingHistory && user) {
-                setMode('menu');
-                setPlayers([]);
-                setPlayerInput("");
-                setCourtPrice("");
-                setShuttlePrice("");
-                setOtherPrice("");
-                setDiscount("");
-                setShowBill(false);
-                setOtCourtPrice("");
-                setOtHours("");
-                setOtCourtCount("");
-                setOtShuttlePrice("");
-                setOtShuttleCount("");
-                setOtShuttleRate("");
-                setOtOtherPrice("");
-                setOtDiscount("");
+            // 3. Always Reset Local State if not viewing history
+            if (!isViewingHistory) {
+                resetAllState();
             }
 
         } catch (err) {
             console.error("Finish error:", err);
             toast.error("เกิดข้อผิดพลาดในการบันทึก");
+        } finally {
             setIsDownloading(false);
         }
     };
