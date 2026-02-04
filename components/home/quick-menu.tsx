@@ -3,18 +3,20 @@
 import Image from "next/image";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { Icons } from "@/components/icons";
 
 interface QuickMenuItem {
   href: string;
   label: string;
-  image: string;
+  image?: string;
+  icon?: React.ElementType; // Support component icons
   isNew?: boolean;
 }
 
 const quickMenuItems: QuickMenuItem[] = [
   { href: "/party", label: "หาก๊วน", image: "/icons/find-party.jpg" },
   { href: "/courts", label: "หาคอร์ท", image: "/icons/find-court.jpg" },
-  { href: "/quests", label: "ภารกิจ", image: "/icons/quest.jpg", isNew: true },
+  { href: "/tools/cost-calculator", label: "คิดเงิน", icon: Icons.money, isNew: true }, // Changed to Icons.money
   { href: "/tools/team-generator", label: "สุ่มจับคู่", image: "/icons/team-generator.jpg" },
   { href: "/tools/scoreboard", label: "Scoreboard", image: "/icons/scoreboard.jpg" },
   { href: "/ranking", label: "Ranking", image: "/icons/ranking.jpg", isNew: true },
@@ -38,14 +40,21 @@ export function QuickMenu() {
           )}
         >
           <div className="relative mb-2">
-            <div className="w-16 h-16 rounded-xl overflow-hidden bg-muted/30">
-              <Image
-                src={item.image || "/placeholder.svg"}
-                alt={item.label}
-                width={64}
-                height={64}
-                className="w-full h-full object-cover"
-              />
+            <div className={cn(
+              "w-16 h-16 rounded-xl overflow-hidden flex items-center justify-center",
+              item.icon ? "bg-[#FFF5E6]" : "bg-muted/30"
+            )}>
+              {item.icon ? (
+                <item.icon className="w-8 h-8 text-[#FF9500]" />
+              ) : (
+                <Image
+                  src={item.image || "/placeholder.svg"}
+                  alt={item.label}
+                  width={64}
+                  height={64}
+                  className="w-full h-full object-cover"
+                />
+              )}
             </div>
             {item.isNew && (
               <span className="absolute -top-1 -right-1 px-1.5 py-0.5 text-[10px] font-bold bg-[#FF6B6B] text-white rounded-full shadow-sm">
@@ -53,7 +62,7 @@ export function QuickMenu() {
               </span>
             )}
           </div>
-          <span className="text-sm font-medium text-foreground text-center">
+          <span className="text-sm font-semibold text-foreground text-center">
             {item.label}
           </span>
         </Link>

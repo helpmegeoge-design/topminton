@@ -1,12 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { createClient } from "@/lib/supabase/client";
+import { formatDistanceToNow } from "date-fns";
+import { th } from "date-fns/locale";
 
 type Category = "all" | "racket" | "shoes" | "shuttlecock" | "bag" | "others";
 type Condition = "new" | "used";
@@ -29,75 +32,6 @@ interface Product {
   isSold: boolean;
 }
 
-const mockProducts: Product[] = [
-  {
-    id: "1",
-    title: "Yonex Astrox 99 Pro มือสอง สภาพ 90%",
-    price: 4500,
-    originalPrice: 7990,
-    condition: "used",
-    category: "racket",
-    imageUrl: "/images/marketplace/racket-1.jpg",
-    seller: {
-      name: "สมชาย",
-      avatar: "/images/avatars/avatar-1.jpg",
-      rating: 4.8,
-    },
-    location: "กรุงเทพฯ",
-    createdAt: "2 ชั่วโมงที่แล้ว",
-    isSold: false,
-  },
-  {
-    id: "2",
-    title: "Victor P9200 II รองเท้าแบดมินตัน ใหม่",
-    price: 3200,
-    condition: "new",
-    category: "shoes",
-    imageUrl: "/images/marketplace/shoes-1.jpg",
-    seller: {
-      name: "วิชัย",
-      avatar: "/images/avatars/avatar-3.jpg",
-      rating: 4.5,
-    },
-    location: "นนทบุรี",
-    createdAt: "5 ชั่วโมงที่แล้ว",
-    isSold: false,
-  },
-  {
-    id: "3",
-    title: "ลูกขนไก่ RSL Classic 1 หลอด (12 ลูก)",
-    price: 450,
-    condition: "new",
-    category: "shuttlecock",
-    imageUrl: "/images/posts/post-2.jpg",
-    seller: {
-      name: "สุภาพ",
-      avatar: "/images/avatars/avatar-2.jpg",
-      rating: 4.9,
-    },
-    location: "กรุงเทพฯ",
-    createdAt: "1 วันที่แล้ว",
-    isSold: false,
-  },
-  {
-    id: "4",
-    title: "Yonex Nanoflare 700 มือสอง",
-    price: 3800,
-    originalPrice: 6500,
-    condition: "used",
-    category: "racket",
-    imageUrl: "/images/marketplace/racket-1.jpg",
-    seller: {
-      name: "ปรีชา",
-      avatar: "/images/avatars/avatar-4.jpg",
-      rating: 4.7,
-    },
-    location: "ปทุมธานี",
-    createdAt: "2 วันที่แล้ว",
-    isSold: true,
-  },
-];
-
 const categories: { key: Category; label: string }[] = [
   { key: "all", label: "ทั้งหมด" },
   { key: "racket", label: "ไม้แบด" },
@@ -113,17 +47,79 @@ export default function MarketplacePage() {
   const [selectedCategory, setSelectedCategory] = useState<Category>("all");
   const [showOnlyNew, setShowOnlyNew] = useState(false);
 
-  const filteredProducts = mockProducts.filter((product) => {
-    if (selectedCategory !== "all" && product.category !== selectedCategory)
-      return false;
-    if (showOnlyNew && product.condition !== "new") return false;
-    if (
-      searchQuery &&
-      !product.title.toLowerCase().includes(searchQuery.toLowerCase())
-    )
-      return false;
-    return true;
-  });
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Fetch Products
+  useEffect(() => {
+    const fetchProducts = async () => {
+      setLoading(true);
+      const supabase = createClient();
+      if (!supabase) return;
+
+      try {
+        let query = supabase
+          .from('market_products')
+          .select(`
+            *,
+            profiles:user_id (
+              display_name,
+              avatar_url
+            )
+          `)
+          .order('created_at', { ascending: false });
+
+        if (selectedCategory !== 'all') {
+          query = query.eq('category', selectedCategory);
+        }
+
+        if (showOnlyNew) {
+          query = query.eq('condition', 'new');
+        }
+
+        // Search title client-side or use .ilike if simple, but filtering full list is ok for now 
+        // if not huge. Or .ilike('title', `%${searchQuery}%`) if backend search preferred.
+        // Let's use backend search if query exists.
+        if (searchQuery) {
+          query = query.ilike('title', `%${searchQuery}%`);
+        }
+
+        const { data, error } = await query;
+
+        if (error) {
+          console.error("Error fetching products:", error);
+          return;
+        }
+
+        if (data) {
+          const map: Product[] = data.map((item: any) => ({
+            id: item.id,
+            title: item.title,
+            price: item.price,
+            originalPrice: item.original_price,
+            condition: item.condition as Condition,
+            category: item.category,
+            imageUrl: item.images && item.images.length > 0 ? item.images[0] : "/placeholder.svg",
+            seller: {
+              name: item.profiles?.display_name || "Unknown",
+              avatar: item.profiles?.avatar_url || "/placeholder.svg",
+              rating: 5.0, // Mock rating for now as we don't have table
+            },
+            location: item.location || "Bangkok",
+            createdAt: formatDistanceToNow(new Date(item.created_at), { addSuffix: true, locale: th }),
+            isSold: item.is_sold
+          }));
+          setProducts(map);
+        }
+      } catch (err) {
+        console.error("Fetch market error:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProducts();
+  }, [selectedCategory, showOnlyNew, searchQuery]); // Re-fetch on filter change
 
   return (
     <AppShell>
@@ -133,7 +129,7 @@ export default function MarketplacePage() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <button
-                onClick={() => router.back()}
+                onClick={() => router.push("/")}
                 className="w-10 h-10 rounded-full bg-muted flex items-center justify-center tap-highlight"
               >
                 <ArrowLeftIcon size={20} className="text-foreground" />
@@ -189,7 +185,7 @@ export default function MarketplacePage() {
         {/* Condition Filter */}
         <div className="px-4 py-2 flex items-center justify-between">
           <span className="text-sm text-muted-foreground">
-            {filteredProducts.length} รายการ
+            {products.length} รายการ
           </span>
           <button
             onClick={() => setShowOnlyNew(!showOnlyNew)}
@@ -216,7 +212,13 @@ export default function MarketplacePage() {
 
         {/* Products Grid */}
         <div className="flex-1 p-4 pb-24">
-          {filteredProducts.length === 0 ? (
+          {loading ? (
+            <div className="grid grid-cols-2 gap-3">
+              {[1, 2, 3, 4].map(i => (
+                <div key={i} className="aspect-square rounded-xl bg-muted/20 animate-pulse" />
+              ))}
+            </div>
+          ) : products.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16">
               <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
                 <ShoppingBagIcon size={32} className="text-muted-foreground" />
@@ -225,7 +227,7 @@ export default function MarketplacePage() {
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-3">
-              {filteredProducts.map((product) => (
+              {products.map((product) => (
                 <GlassCard
                   key={product.id}
                   className={cn(
@@ -235,9 +237,9 @@ export default function MarketplacePage() {
                   onClick={() => router.push(`/marketplace/${product.id}`)}
                 >
                   {/* Image */}
-                  <div className="aspect-square relative overflow-hidden">
+                  <div className="aspect-square relative overflow-hidden bg-muted">
                     <img
-                      src={product.imageUrl || "/placeholder.svg"}
+                      src={product.imageUrl}
                       alt={product.title}
                       className="w-full h-full object-cover"
                     />
@@ -246,8 +248,8 @@ export default function MarketplacePage() {
                       className={cn(
                         "absolute top-2 left-2 px-2 py-0.5 rounded-full text-xs font-medium",
                         product.condition === "new"
-                          ? "bg-green-100 text-green-700"
-                          : "bg-orange-100 text-orange-700"
+                          ? "bg-green-100/90 text-green-700"
+                          : "bg-orange-100/90 text-orange-700"
                       )}
                     >
                       {product.condition === "new" ? "มือ 1" : "มือ 2"}
@@ -264,7 +266,7 @@ export default function MarketplacePage() {
 
                   {/* Info */}
                   <div className="p-3">
-                    <h3 className="text-sm font-medium text-foreground line-clamp-2 mb-1">
+                    <h3 className="text-sm font-medium text-foreground line-clamp-2 mb-1 h-10">
                       {product.title}
                     </h3>
                     <div className="flex items-center gap-2 mb-2">
@@ -278,17 +280,17 @@ export default function MarketplacePage() {
                       )}
                     </div>
                     <div className="flex items-center gap-2">
-                      <div className="w-5 h-5 rounded-full overflow-hidden">
+                      <div className="w-5 h-5 rounded-full overflow-hidden flex-shrink-0 bg-muted">
                         <img
-                          src={product.seller.avatar || "/placeholder.svg"}
+                          src={product.seller.avatar}
                           alt={product.seller.name}
                           className="w-full h-full object-cover"
                         />
                       </div>
-                      <span className="text-xs text-muted-foreground truncate">
+                      <span className="text-xs text-muted-foreground truncate max-w-[80px]">
                         {product.seller.name}
                       </span>
-                      <span className="text-xs text-muted-foreground">
+                      <span className="text-xs text-muted-foreground ml-auto truncate max-w-[60px]">
                         {product.location}
                       </span>
                     </div>

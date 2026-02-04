@@ -1,15 +1,7 @@
 import React from "react"
 import type { Metadata, Viewport } from "next";
-import { Prompt } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
-
-const prompt = Prompt({
-  subsets: ["latin", "thai"],
-  weight: ["300", "400", "500", "600", "700"],
-  variable: "--font-prompt",
-  display: "swap",
-});
 
 export const metadata: Metadata = {
   title: {
@@ -68,16 +60,31 @@ export const viewport: Viewport = {
   themeColor: "#FF9500",
 };
 
+import { ThemeProvider } from "@/components/theme-provider";
+import { Toaster } from "sonner";
+
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="th" className={prompt.variable}>
-      <body className="font-sans antialiased overflow-x-hidden">
-        <div className="min-h-screen bg-background">{children}</div>
-        <Analytics />
+    <html lang="th" suppressHydrationWarning>
+      <body className="font-sans antialiased overflow-x-hidden relative">
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="light"
+          enableSystem={false}
+          forcedTheme="light" // Enforce light mode
+          disableTransitionOnChange
+        >
+          {/* Background layers removed as Dark Mode is disabled */}
+
+
+          <div className="min-h-screen relative z-0 text-foreground">{children}</div>
+          <Analytics />
+          <Toaster position="top-center" richColors />
+        </ThemeProvider>
       </body>
     </html>
   );

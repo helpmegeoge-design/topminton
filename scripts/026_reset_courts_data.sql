@@ -1,0 +1,225 @@
+-- Clear all existing courts and add new specific courts
+-- Created: 2026-02-04
+-- This script uses TRUNCATE CASCADE to safely remove all data
+
+-- First, add the missing columns if they don't exist
+ALTER TABLE courts ADD COLUMN IF NOT EXISTS open_time TEXT DEFAULT '09:00';
+ALTER TABLE courts ADD COLUMN IF NOT EXISTS close_time TEXT DEFAULT '22:00';
+
+-- Use TRUNCATE CASCADE to delete all courts and related data
+-- This will automatically delete all parties, party_members, party_invites, party_chats, matches that reference these courts
+TRUNCATE TABLE courts RESTART IDENTITY CASCADE;
+
+-- Add new courts based on research from Google Maps
+INSERT INTO courts (name, address, price_per_hour, court_count, amenities, images, rating, phone, open_time, close_time, province, latitude, longitude)
+VALUES
+(
+  'BBW SPORTCLUB',
+  'บางแสน ชลบุรี',
+  150.00,
+  8,
+  ARRAY['ที่จอดรถ', 'ห้องอาบน้ำ'],
+  ARRAY[]::TEXT[],
+  4.5,
+  '-',
+  '17:00',
+  '22:00',
+  'Chonburi',
+  13.2808,
+  100.9199
+),
+(
+  'TANALAI SPORTCLUB',
+  '222 หมู่ 6 ถนนบ้านบึง-พานทอง ต.มาบไผ่ อ.บ้านบึง จ.ชลบุรี 20170',
+  160.00,
+  12,
+  ARRAY['ที่จอดรถ', 'ห้องอาบน้ำ', 'ร้านอาหาร', 'Wi-Fi'],
+  ARRAY[]::TEXT[],
+  4.7,
+  '095 484 7777',
+  '06:00',
+  '24:00',
+  'Chonburi',
+  13.3489,
+  101.0988
+),
+(
+  'PREMIO SPORT บ้านบึง',
+  'ถนนชลบุรี-บ้านบึง ต.บ้านบึง อ.บ้านบึง จ.ชลบุรี',
+  180.00,
+  10,
+  ARRAY['ที่จอดรถ', 'ห้องอาบน้ำ', 'ร้านอาหาร', 'Wi-Fi'],
+  ARRAY[]::TEXT[],
+  4.6,
+  '-',
+  '06:00',
+  '22:00',
+  'Chonburi',
+  13.3123,
+  101.1176
+),
+(
+  'AMATIO BADMINTON',
+  '666 หมู่ 5 ต.คลองตำหรุ อ.เมืองชลบุรี จ.ชลบุรี 20000',
+  200.00,
+  14,
+  ARRAY['ที่จอดรถ', 'ห้องอาบน้ำ', 'แอร์', 'Wi-Fi'],
+  ARRAY[]::TEXT[],
+  4.8,
+  '097 223 5664',
+  '06:00',
+  '23:00',
+  'Chonburi',
+  13.3611,
+  100.9847
+),
+(
+  'SCOURT',
+  '88 หมู่ 7 ซอยเรืองอร่าม ต.ดอนหัวฬ่อ อ.เมือง จ.ชลบุรี',
+  160.00,
+  8,
+  ARRAY['ที่จอดรถ', 'ห้องอาบน้ำ'],
+  ARRAY[]::TEXT[],
+  4.5,
+  '090 989 7999',
+  '09:00',
+  '23:00',
+  'Chonburi',
+  13.4164,
+  101.0025
+),
+(
+  'HOMESPORT CLUB',
+  'ชลบุรี',
+  140.00,
+  6,
+  ARRAY['ที่จอดรถ', 'ห้องอาบน้ำ'],
+  ARRAY[]::TEXT[],
+  4.3,
+  '-',
+  '06:00',
+  '22:00',
+  'Chonburi',
+  13.3611,
+  100.9847
+),
+(
+  'ICEBURG SPORTCLUB',
+  '8 หมู่ 1 ถนนสุขุมวิท ต.เสม็ด อ.เมืองชลบุรี จ.ชลบุรี 20000',
+  150.00,
+  10,
+  ARRAY['Wi-Fi', 'ที่จอดรถ', 'ห้องอาบน้ำ', 'ร้านขายอุปกรณ์'],
+  ARRAY[]::TEXT[],
+  4.8,
+  '086 444 5596',
+  '06:00',
+  '23:00',
+  'Chonburi',
+  13.3611,
+  100.9847
+),
+(
+  'สนามแบด อบต.ชลบุรี',
+  'ซอยลาดวิถีบางปลาสร้อย ถนนตำหนักน้ำ อ.เมืองชลบุรี จ.ชลบุรี 20000',
+  100.00,
+  5,
+  ARRAY['ที่จอดรถ'],
+  ARRAY[]::TEXT[],
+  4.2,
+  '038 283 778',
+  '06:00',
+  '22:00',
+  'Chonburi',
+  13.3611,
+  100.9847
+),
+(
+  'สนามแบดพนัสนิคม',
+  'ศรีพนัส ซอย 1 ต.พนัสนิคม อ.พนัสนิคม จ.ชลบุรี 20140',
+  50.00,
+  4,
+  ARRAY['ที่จอดรถ'],
+  ARRAY[]::TEXT[],
+  4.0,
+  '089 926 4455',
+  '17:00',
+  '21:00',
+  'Chonburi',
+  13.4397,
+  101.1981
+),
+(
+  'DSC Diamond Sport Complex',
+  'หมู่ 1 111/11 ถนนบ้านเก่า ต.บ้านเก่า อ.พานทอง จ.ชลบุรี 20160',
+  150.00,
+  7,
+  ARRAY['ที่จอดรถ', 'ห้องอาบน้ำ'],
+  ARRAY[]::TEXT[],
+  4.5,
+  '083 174 5555',
+  '06:00',
+  '23:00',
+  'Chonburi',
+  13.4667,
+  101.0000
+),
+(
+  'สนามแบดมินตันบ้านไร่',
+  '27 ถนนบางแสนสาย 3 ต.แสนสุข อ.เมืองชลบุรี จ.ชลบุรี 20130',
+  120.00,
+  4,
+  ARRAY['ที่จอดรถ', 'ห้องอาบน้ำ'],
+  ARRAY[]::TEXT[],
+  4.3,
+  '096 752 2570',
+  '06:00',
+  '22:00',
+  'Chonburi',
+  13.2808,
+  100.9199
+),
+(
+  'BP BADMINTON',
+  '20/10 ถนนบางแสนสาย 4 เหนือ ต.แสนสุข อ.เมืองชลบุรี จ.ชลบุรี',
+  150.00,
+  6,
+  ARRAY['ที่จอดรถ', 'ห้องอาบน้ำ'],
+  ARRAY[]::TEXT[],
+  4.4,
+  '-',
+  '06:00',
+  '22:00',
+  'Chonburi',
+  13.2808,
+  100.9199
+),
+(
+  'NP BADMINTON พานทอง',
+  'ต.พานทอง อ.พานทอง จ.ชลบุรี',
+  130.00,
+  6,
+  ARRAY['ที่จอดรถ', 'ห้องอาบน้ำ'],
+  ARRAY[]::TEXT[],
+  4.3,
+  '-',
+  '06:00',
+  '22:00',
+  'Chonburi',
+  13.4667,
+  101.0000
+),
+(
+  'สนามทัศนากาเดน',
+  '53 ต.บ้านปึก อ.เมืองชลบุรี จ.ชลบุรี 20130',
+  160.00,
+  8,
+  ARRAY['ที่จอดรถ', 'ห้องอาบน้ำ', 'ร้านอาหาร', 'Wi-Fi'],
+  ARRAY[]::TEXT[],
+  4.6,
+  '038 384 602',
+  '08:00',
+  '22:00',
+  'Chonburi',
+  13.3611,
+  100.9847
+);

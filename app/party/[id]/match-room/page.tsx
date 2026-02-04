@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { BackButton } from "@/components/ui/back-button";
+import Link from "next/link";
 import {
   Users,
   Shuffle,
@@ -61,6 +62,7 @@ export default function MatchRoomPage({
 
   const fetchData = async () => {
     const supabase = createClient();
+    if (!supabase) return;
 
     // Fetch party info
     const { data: party } = await supabase
@@ -109,6 +111,41 @@ export default function MatchRoomPage({
 
   useEffect(() => {
     fetchData();
+
+    // Subscribe to realtime changes
+    const supabase = createClient();
+    if (!supabase) return;
+
+    const channel = supabase
+      .channel('match-room-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'match_rooms',
+          filter: `party_id=eq.${partyId}`,
+        },
+        () => {
+          fetchData();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'match_pairings',
+        },
+        () => {
+          fetchData();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [partyId]);
 
   const shufflePlayers = (arr: Player[]): Player[] => {
@@ -128,6 +165,11 @@ export default function MatchRoomPage({
 
     setGenerating(true);
     const supabase = createClient();
+    if (!supabase) {
+      alert("ไม่สามารถเชื่อมต่อระบบได้");
+      setGenerating(false);
+      return;
+    }
 
     // Shuffle players
     const shuffled = shufflePlayers(players);
@@ -147,6 +189,7 @@ export default function MatchRoomPage({
 
     if (roomError || !room) {
       console.error("Error creating room:", roomError);
+      alert("เกิดข้อผิดพลาดในการสร้างห้อง");
       setGenerating(false);
       return;
     }
@@ -166,6 +209,8 @@ export default function MatchRoomPage({
           team_b_player2_id: shuffled[i + 3].id,
           status: "pending",
         });
+      } else {
+        // Handle remaining players (optional warning)
       }
     }
 
@@ -176,10 +221,11 @@ export default function MatchRoomPage({
 
       if (pairingError) {
         console.error("Error creating pairings:", pairingError);
+        alert("เกิดข้อผิดพลาดในการจับคู่");
       }
     }
 
-    await fetchData();
+    await fetchData(); // Force fetch immediately
     setGenerating(false);
   };
 
@@ -189,6 +235,8 @@ export default function MatchRoomPage({
     increment: number
   ) => {
     const supabase = createClient();
+    if (!supabase) return;
+
     const pairing = matchRooms
       .flatMap((r) => r.pairings)
       .find((p) => p.id === pairingId);
@@ -209,6 +257,8 @@ export default function MatchRoomPage({
 
   const finishMatch = async (pairingId: string) => {
     const supabase = createClient();
+    if (!supabase) return;
+
     const pairing = matchRooms
       .flatMap((r) => r.pairings)
       .find((p) => p.id === pairingId);
@@ -254,6 +304,12 @@ export default function MatchRoomPage({
               {partyInfo?.title || "Loading..."}
             </p>
           </div>
+          <Link href={`/party/${partyId}/results`}>
+            <Button variant="ghost" size="sm" className="text-primary font-medium">
+              <Trophy className="w-4 h-4 mr-1" />
+              ผลการแข่ง
+            </Button>
+          </Link>
         </div>
       </header>
 

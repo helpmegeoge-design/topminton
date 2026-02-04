@@ -34,7 +34,7 @@ export default function ReceiptPage() {
             // Fetch Party & Host
             const { data: partyData } = await supabase
                 .from('parties')
-                .select(`*, host:profiles(*)`)
+                .select(`*, host:profiles!parties_host_id_fkey(*)`)
                 .eq('id', id)
                 .single();
 

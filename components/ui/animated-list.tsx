@@ -1,44 +1,43 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { useEffect, useRef, ReactNode } from "react";
 
-export const containerVariants = {
-    hidden: { opacity: 0 },
-    show: {
-        opacity: 1,
-        transition: {
-            staggerChildren: 0.1
-        }
-    }
-};
+interface AnimatedListProps {
+    children: ReactNode;
+    className?: string;
+}
 
-export const itemVariants = {
-    hidden: { opacity: 0, y: 20 },
-    show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 300, damping: 24 } }
-};
+export function AnimatedList({ children, className }: AnimatedListProps) {
+    const containerRef = useRef<HTMLDivElement>(null);
 
-export function AnimatedList({ children, className }: { children: React.ReactNode; className?: string }) {
+    useEffect(() => {
+        if (!containerRef.current) return;
+
+        const items = containerRef.current.children;
+        Array.from(items).forEach((item, index) => {
+            if (item instanceof HTMLElement) {
+                item.classList.add("animate-fade-in-up");
+                item.classList.add(`stagger-${Math.min(index + 1, 10)}`);
+            }
+        });
+    }, [children]);
+
     return (
-        <motion.div
-            variants={containerVariants}
-            initial="hidden"
-            animate="show"
-            className={className}
-        >
+        <div ref={containerRef} className={className}>
             {children}
-        </motion.div>
+        </div>
     );
 }
 
-export function AnimatedItem({ children, className, onClick }: { children: React.ReactNode; className?: string, onClick?: () => void }) {
+interface AnimatedItemProps {
+    children: ReactNode;
+    className?: string;
+}
+
+export function AnimatedItem({ children, className }: AnimatedItemProps) {
     return (
-        <motion.div
-            variants={itemVariants}
-            className={className}
-            whileTap={{ scale: 0.97 }} // Instagram touch feel
-            onClick={onClick}
-        >
+        <div className={`tap-effect ${className || ""}`}>
             {children}
-        </motion.div>
+        </div>
     );
 }

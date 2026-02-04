@@ -1,0 +1,141 @@
+"use client";
+
+import { useSearchParams, useRouter } from "next/navigation";
+import { AppShell } from "@/components/app-shell";
+import { GlassCard } from "@/components/ui/glass-card";
+import { Button } from "@/components/ui/button";
+import { LevelBadge } from "@/components/ui/level-badge";
+import { ArrowLeftIcon, CheckIcon, StarIcon, TrophyIcon } from "@/components/icons";
+import { useEffect, useState, Suspense } from "react";
+import Confetti from "react-confetti";
+import { useWindowSize } from "react-use";
+import { toast } from "sonner";
+
+function CompletedContent() {
+    const params = useSearchParams();
+    const router = useRouter();
+    const level = params.get("level") || "beginner";
+    const { width, height } = useWindowSize();
+    const [showConfetti, setShowConfetti] = useState(true);
+
+    // Stop confetti after 5 seconds
+    useEffect(() => {
+        const timer = setTimeout(() => setShowConfetti(false), 5000);
+        return () => clearTimeout(timer);
+    }, []);
+
+    const getLevelDetails = (lvl: string) => {
+        // Map simplified levels to description if needed
+        // Assuming level string matches what we stored in DB
+        return {
+            title: "Badminton Skill Assessment",
+            date: new Date().toLocaleDateString('th-TH', {
+                year: 'numeric', month: 'long', day: 'numeric'
+            })
+        };
+    };
+
+    const details = getLevelDetails(level);
+
+    return (
+        <div className="flex flex-col min-h-screen bg-gradient-to-b from-primary/5 to-background relative overflow-hidden">
+            {showConfetti && <Confetti width={width} height={height} numberOfPieces={200} recycle={false} />}
+
+            {/* Header */}
+            <header className="sticky top-0 z-10 glass-card border-b border-border/50 px-4 py-3">
+                <div className="flex items-center gap-3">
+                    <button
+                        onClick={() => router.push("/assessment")}
+                        className="w-10 h-10 rounded-full bg-muted flex items-center justify-center tap-highlight"
+                    >
+                        <ArrowLeftIcon size={20} className="text-foreground" />
+                    </button>
+                    <h1 className="text-lg font-semibold text-foreground">
+                        ผลการประเมิน
+                    </h1>
+                </div>
+            </header>
+
+            <div className="flex-1 p-6 flex flex-col items-center justify-center pb-20">
+
+                <div className="text-center mb-8 animate-in fade-in zoom-in duration-500">
+                    <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg border-4 border-white">
+                        <CheckIcon size={40} className="text-green-600" />
+                    </div>
+                    <h2 className="text-2xl font-bold text-foreground">ประเมินเสร็จสิ้น!</h2>
+                    <p className="text-muted-foreground">ระดับฝีมือของคุณได้รับการบันทึกแล้ว</p>
+                </div>
+
+                {/* Certificate Card */}
+                <div className="w-full max-w-sm relative group perspective-1000">
+                    <div className="absolute -inset-1 bg-gradient-to-r from-primary to-purple-600 rounded-2xl blur opacity-25 group-hover:opacity-50 transition duration-1000"></div>
+                    <GlassCard className="relative p-8 text-center border-2 border-primary/20 bg-white/50 dark:bg-black/50 overflow-hidden">
+
+                        {/* Corner Decorations */}
+                        <div className="absolute top-0 left-0 w-16 h-16 border-t-4 border-l-4 border-primary/30 rounded-tl-2xl"></div>
+                        <div className="absolute top-0 right-0 w-16 h-16 border-t-4 border-r-4 border-primary/30 rounded-tr-2xl"></div>
+                        <div className="absolute bottom-0 left-0 w-16 h-16 border-b-4 border-l-4 border-primary/30 rounded-bl-2xl"></div>
+                        <div className="absolute bottom-0 right-0 w-16 h-16 border-b-4 border-r-4 border-primary/30 rounded-br-2xl"></div>
+
+                        <div className="mb-6">
+                            <TrophyIcon size={48} className="text-primary mx-auto mb-2 drop-shadow-md" />
+                            <h3 className="text-sm font-semibold text-primary uppercase tracking-widest">Certificate of Achievement</h3>
+                        </div>
+
+                        <h1 className="text-4xl font-black text-foreground mb-2 mt-4 drop-shadow-sm tracking-tight">
+                            {level.toUpperCase()}
+                        </h1>
+                        <div className="flex justify-center mb-6">
+                            <LevelBadge level={level} size="lg" className="shadow-md scale-125" />
+                        </div>
+
+                        <div className="w-full h-px bg-border my-6 relative">
+                            <div className="absolute left-1/2 -translate-x-1/2 -top-2.5 bg-background px-2 text-muted-foreground">
+                                <StarIcon size={16} />
+                            </div>
+                        </div>
+
+                        <div className="text-sm text-foreground/80 font-medium">
+                            <p>ได้รับการรับรองระดับฝีมือแบดมินตัน</p>
+                            <p className="text-xs text-muted-foreground mt-1">{details.date}</p>
+                        </div>
+
+                        <div className="mt-8 pt-4 border-t border-dashed border-border/50">
+                            <p className="text-[10px] text-muted-foreground uppercase tracking-widest">Verified by T-Badminton Assessment</p>
+                        </div>
+                    </GlassCard>
+                </div>
+
+                <div className="mt-8 w-full max-w-sm space-y-3">
+                    <Button
+                        className="w-full h-12 text-lg font-bold shadow-lg"
+                        onClick={() => router.push("/assessment")}
+                    >
+                        กลับสู่หน้าหลัก
+                    </Button>
+                    <Button
+                        variant="outline"
+                        className="w-full h-12"
+                        onClick={() => {
+                            // Share logic could go here
+                            toast.success("คัดลอกลิงก์ผลลัพธ์แล้ว!");
+                        }}
+                    >
+                        แชร์ใบรับรอง
+                    </Button>
+                </div>
+
+            </div>
+        </div>
+    );
+}
+
+export default function AssessmentCompletedPage() {
+    return (
+        <AppShell hideNav>
+            <Suspense fallback={<div className="p-10 text-center">Loading result...</div>}>
+                <CompletedContent />
+            </Suspense>
+        </AppShell>
+    );
+}

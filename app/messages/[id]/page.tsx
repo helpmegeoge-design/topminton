@@ -124,7 +124,7 @@ export default function ChatPage() {
       }
 
       // Direct message chat
-      console.log('Loading chat with:', chatId);
+      // Direct message chat
 
       // Fetch contact
       const { data: contactData, error: contactError } = await supabase
@@ -147,7 +147,7 @@ export default function ChatPage() {
       });
 
       // Fetch messages
-      console.log('Fetching messages...');
+      // Fetch messages
       const { data: messagesData, error: messagesError } = await supabase
         .from('messages')
         .select('*')
@@ -165,7 +165,7 @@ export default function ChatPage() {
         return;
       }
 
-      console.log('Messages loaded:', messagesData?.length || 0);
+
       if (messagesData) {
         setMessages(messagesData);
 
@@ -191,7 +191,7 @@ export default function ChatPage() {
             filter: `sender_id=eq.${chatId},receiver_id=eq.${user.id}`
           },
           (payload) => {
-            console.log('New message:', payload);
+
             setMessages((prev) => [...prev, payload.new as Message]);
 
             // Play notification sound
@@ -230,7 +230,7 @@ export default function ChatPage() {
             filter: `sender_id=eq.${user.id},receiver_id=eq.${chatId}`
           },
           (payload) => {
-            console.log('Message read status updated:', payload);
+
             setMessages((prev) =>
               prev.map(m =>
                 m.id === payload.new.id

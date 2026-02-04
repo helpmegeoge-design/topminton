@@ -7,8 +7,10 @@ import { AppShell } from "@/components/app-shell";
 import { PlusIcon, FilterIcon, Icons } from "@/components/icons";
 import { DateStrip } from "@/components/ui/date-strip";
 import { PartyCard } from "@/components/party/party-card";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
+import { LoadingShuttlecock } from "@/components/ui/loading-shuttlecock";
 import { format } from "date-fns";
 import { th } from "date-fns/locale";
 
@@ -40,6 +42,7 @@ export default function PartyPage() {
   const [selectedProvince, setSelectedProvince] = useState("all"); // Default to all
   const [parties, setParties] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchParties = async () => {
@@ -59,7 +62,7 @@ export default function PartyPage() {
           .select(`
             *,
             court:courts(name, address, id, images, province),
-            host:profiles(display_name, first_name, avatar_url),
+            host:profiles!parties_host_id_fkey(display_name, first_name, avatar_url),
             members:party_members(user_id)
           `)
           .eq('date', queryDate)
@@ -78,6 +81,13 @@ export default function PartyPage() {
 
         if (error) {
           console.error("Error fetching parties:", error);
+          console.error("Error details:", JSON.stringify(error, null, 2));
+          console.error("Error message:", error?.message || "No error message");
+          console.error("Error code:", error?.code || "No error code");
+
+          // Show error to user
+          setParties([]);
+          setError("ไม่สามารถโหลดข้อมูลก๊วนได้ กรุณาลองใหม่อีกครั้ง");
         } else if (data) {
           let filteredData = data;
 
@@ -88,21 +98,13 @@ export default function PartyPage() {
               const courtAddr = p.court?.address || "";
               const fullText = (
                 JSON.stringify(p.court || "") +
-                courtProv +
-                courtAddr +
-                (p.title || "") +
-                (p.description || "")
+                " " +
+                (courtProv || "") +
+                " " +
+                (courtAddr || "")
               ).toLowerCase();
-
-              if (selectedProvince === 'bangkok') {
-                return fullText.includes('กรุงเทพ') || fullText.includes('bangkok') || fullText.includes('bkk');
-              } else if (selectedProvince === 'chonburi') {
-                // strict match for Chonburi OR anything that is clearly NOT Bangkok (assuming default local is Chonburi)
-                const isBangkok = fullText.includes('กรุงเทพ') || fullText.includes('bangkok') || fullText.includes('bkk');
-                const isChonburi = fullText.includes('ชลบุรี') || fullText.includes('chonburi') || fullText.includes('pattaya') || fullText.includes('sriracha');
-                return isChonburi || !isBangkok;
-              }
-              return true;
+              const provinceLower = selectedProvince.toLowerCase();
+              return fullText.includes(provinceLower);
             });
           }
 
@@ -229,7 +231,16 @@ export default function PartyPage() {
       {/* Content */}
       <div className="px-4 py-4 space-y-3">
         {isLoading ? (
-          <div className="py-12 text-center text-muted-foreground">กำลังโหลดข้อมูล...</div>
+          <div className="py-12 flex justify-center">
+            <LoadingShuttlecock />
+          </div>
+        ) : error ? (
+          <div className="py-12 text-center">
+            <div className="text-destructive mb-4">{error}</div>
+            <Button onClick={() => window.location.reload()}>
+              ลองใหม่อีกครั้ง
+            </Button>
+          </div>
         ) : parties.length > 0 ? (
           parties.map((party) => (
             <PartyCard key={party.id} {...party} />

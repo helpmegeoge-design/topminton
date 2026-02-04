@@ -1,541 +1,348 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Button } from "@/components/ui/button";
-import { LevelBadge } from "@/components/ui/level-badge";
-import { ArrowLeftIcon, CheckIcon } from "@/components/icons";
+import { ArrowLeftIcon } from "@/components/icons";
+import { createClient } from "@/lib/supabase/client";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
-const quizQuestions = [
-  {
-    id: 1,
-    category: "กติกา",
-    question: "ในการเสิร์ฟแบดมินตัน ลูกต้องถูกตีจากระดับใดของเอว?",
-    options: ["สูงกว่าเอว", "ต่ำกว่าเอว", "ระดับเอวพอดี", "ไม่มีกฎกำหนด"],
-    correctAnswer: 1,
-  },
-  {
-    id: 2,
-    category: "กติกา",
-    question: "การแข่งขันแบดมินตันประเภทเดี่ยว เล่นกี่เกมถึงจะชนะ?",
-    options: ["1 เกม", "2 ใน 3 เกม", "3 ใน 5 เกม", "4 เกม"],
-    correctAnswer: 1,
-  },
-  {
-    id: 3,
-    category: "เทคนิค",
-    question: "การตีลูกแบบ Clear มีจุดประสงค์หลักคืออะไร?",
-    options: [
-      "ตีให้ลูกลงใกล้เน็ต",
-      "ตีให้ลูกไปสูงและลึกถึงเส้นหลัง",
-      "ตีให้ลูกเร็วและแรง",
-      "ตีให้ลูกหมุน",
-    ],
-    correctAnswer: 1,
-  },
-  {
-    id: 4,
-    category: "เทคนิค",
-    question: "การจับไม้แบบ Forehand Grip นิ้วหัวแม่มือควรอยู่ตำแหน่งใด?",
-    options: [
-      "ด้านแบนของด้ามจับ",
-      "ด้านแคบของด้ามจับ",
-      "พันรอบด้ามจับ",
-      "ไม่สัมผัสด้ามจับ",
-    ],
-    correctAnswer: 0,
-  },
-  {
-    id: 5,
-    category: "กลยุทธ์",
-    question: "เมื่อคู่ต่อสู้อยู่หลังสนาม ควรใช้ช็อตแบบใด?",
-    options: ["Clear", "Drop shot", "Smash", "Drive"],
-    correctAnswer: 1,
-  },
-  {
-    id: 6,
-    category: "กติกา",
-    question: "คะแนนสูงสุดในแต่ละเกมคือเท่าไหร่?",
-    options: ["15 คะแนน", "21 คะแนน", "25 คะแนน", "30 คะแนน"],
-    correctAnswer: 3,
-  },
-  {
-    id: 7,
-    category: "เทคนิค",
-    question: "การตี Smash ที่ดีควรตีลูกที่จุดใด?",
-    options: [
-      "ระดับต่ำกว่าเอว",
-      "ระดับหน้าอก",
-      "จุดสูงสุดที่แขนเอื้อมถึง",
-      "หลังศีรษะ",
-    ],
-    correctAnswer: 2,
-  },
-  {
-    id: 8,
-    category: "กลยุทธ์",
-    question: "ในการเล่นคู่ รูปแบบการยืนแบบ Side-by-Side เหมาะกับสถานการณ์ใด?",
-    options: ["ตอนรุก", "ตอนรับ/ป้องกัน", "ตอนเสิร์ฟ", "ตลอดเวลา"],
-    correctAnswer: 1,
-  },
-  {
-    id: 9,
-    category: "กติกา",
-    question: "ถ้าลูกตกลงบนเส้น ถือว่าเป็นลูกอะไร?",
-    options: ["ลูกเสีย (Out)", "ลูกดี (In)", "เล่นใหม่ (Let)", "แล้วแต่กรรมการ"],
-    correctAnswer: 1,
-  },
-  {
-    id: 10,
-    category: "เทคนิค",
-    question: "Backhand Clear ใช้กล้ามเนื้อส่วนใดเป็นหลัก?",
-    options: ["ไหล่และแขน", "ข้อมือและนิ้ว", "ขาและสะโพก", "หลังและหน้าท้อง"],
-    correctAnswer: 1,
-  },
+type QuestionCategory = 'general' | 'technical' | 'tactical' | 'psychology' | 'trick';
+
+type Question = {
+  id: number;
+  text: string;
+  category: QuestionCategory;
+  isTrick?: boolean;
+  // If defined, this question will only appear if the user is trending high/low so far
+  // But for tree logic, we might just define explicit next paths if we want to be strict.
+  // For now, let's stick to a pool based approach or random selection with some mandatory ones.
+};
+
+// Full Pool of 40 Questions
+const QUESTION_POOL: Question[] = [
+  // --- General / Fitness (1-5) ---
+  { id: 1, text: "ฉันสามารถวิ่งคอร์ทได้ทั่วสนามติดต่อกัน 2 เกมโดยไม่หมดแรง", category: 'general' },
+  { id: 2, text: "ฉันมีการยืดเหยียดกล้ามเนื้อ (Warm-up / Cool-down) ทุกครั้งที่เล่น", category: 'general' },
+  { id: 3, text: "ฉันสามารถเคลื่อนที่แบบสไลด์ (Chassé) ได้อย่างถูกต้องและคล่องแคล่ว", category: 'general' },
+  { id: 4, text: "ฉันเล่นแบดมินตันอย่างน้อยสัปดาห์ละ 2-3 ครั้ง", category: 'general' },
+  { id: 5, text: "ฉันเคยบาดเจ็บจากการเล่นแบดมินตันเพราะเคลื่อนที่ผิดท่า", category: 'general' }, // Reverse scoring/trick potential?
+
+  // --- Technical (6-20) ---
+  { id: 6, text: "ฉันสามารถตีลูกเซฟ (Clear) ถึงหลังคอร์ทได้ทั้งโฟร์แฮนด์และแบคแฮนด์", category: 'technical' },
+  { id: 7, text: "ฉันสามารถเสิร์ฟลูกสั้นให้เลียดเน็ตและลงในจุดที่ต้องการได้อย่างสม่ำเสมอ", category: 'technical' },
+  { id: 8, text: "ฉันสามารถรับลูกตบ (Defense) แล้วเปลี่ยนทิศทางลูกไปยังที่ว่างได้", category: 'technical' },
+  { id: 9, text: "ฉันสามารถตีลูกหยอด (Drop) จากท้ายคอร์ทให้ลูกตกชิดเน็ตได้", category: 'technical' },
+  { id: 10, text: "ฉันสามารถตีลูกตัด (Slice) หรือปั่นลูกให้หมุนได้", category: 'technical' },
+  { id: 11, text: "ฉันสามารถกระโดดตบ (Jump Smash) ได้อย่างรุนแรงและแม่นยำ", category: 'technical' },
+  { id: 12, text: "ฉันสามารถตีลูกดาด (Drive) สวนกลับเร็วๆ ได้ทันท่วงทีโดยไม่เสียจังหวะ", category: 'technical' },
+  { id: 13, text: "ฉันสามารถแย็บลูกหน้าเน็ต (Net Kill) ได้ทันทีเมื่อลูกลอยสูง", category: 'technical' },
+  { id: 14, text: "ฉันสามารถใช้แบคแฮนด์ตบ (Backhand Smash) ได้รุนแรง", category: 'technical', isTrick: true }, // Semi-trick for most
+  { id: 15, text: "ฉันสามารถพลิกหน้าไม้หลอก (Deception) คู่ต่อสู้ได้บ่อยครั้ง", category: 'technical' },
+
+  // --- Tactical (Doubles Focus) (21-30) - HARDER ---
+  { id: 21, text: "ในประเภทคู่ เมื่อคู่ขาตบจากแดนหลัง ฉันสามารถอ่านทางบอลและดักลูกหน้าเน็ตได้ถูกต้องโดยอัตโนมัติ", category: 'tactical' },
+  { id: 22, text: "ฉันสามารถเปลี่ยนจากรับเป็นรุก (Counter Attack) ได้ทันทีเมื่อคู่ต่อสู้ตีลูกดาดหรือลูกเลียดมาไม่ดี", category: 'tactical' },
+  { id: 23, text: "ฉันเข้าใจระบบการหมุนเวียน (Rotation) เพื่อปิดช่องว่างในสนามได้สมบูรณ์แบบ แม้ในสถานการณ์ที่เสียเปรียบ", category: 'tactical' },
+  { id: 24, text: "ฉันสามารถวางลูกเพื่อบีบให้คู่ต่อสู้ต้องตีโต้กลับมาในทิศทางที่คู่ของฉันรออยู่ได้ (Channeling)", category: 'tactical' },
+  { id: 25, text: "ฉันรู้จังหวะการขึ้นเกม (Pace) ว่าช่วงไหนควรเล่นเร็วเพื่อกดดัน หรือดึงจังหวะช้าเพื่อตั้งเกมใหม่", category: 'tactical' },
+  { id: 26, text: "ฉันสามารถวิเคราะห์จุดอ่อนของคู่แข่งและปรับแผนการเล่นร่วมกับคู่หูได้ทันทีระหว่างแข่ง", category: 'tactical' },
+
+  // --- Psychology / Mindset (31-35) ---
+  { id: 31, text: "เมื่อถูกนำห่าง ฉันสามารถตั้งสติและค่อยๆ ไล่ทำคะแนนคืนได้โดยไม่ถอดใจ", category: 'psychology' },
+  { id: 32, text: "ฉันเคารพคำตัดสินของกรรมการและคู่แข่งเสมอ ไม่หงุดหงิดง่าย", category: 'psychology' },
+  { id: 33, text: "ฉันสามารถอ่านเกมและเดาทางคู่ต่อสู้ได้ล่วงหน้า", category: 'psychology' },
+  { id: 34, text: "ฉันรู้จุดอ่อนของตัวเองและพยายามไม่เล่นในจุดที่เสียเปรียบ", category: 'psychology' },
+
+  // --- Trick Questions (36-40) ---
+  { id: 36, text: "ฉันสามารถกระโดดตบจากเส้นหลังลงเส้นหน้าได้แม่นยำ 100% ทุกลูก", category: 'trick', isTrick: true },
+  { id: 37, text: "ฉันไม่เคยตีลูกติดเน็ตเลยตลอดการแข่งขัน 20 เกมล่าสุด", category: 'trick', isTrick: true },
+  { id: 38, text: "ฉันสามารถสั่งให้เพื่อนร่วมทีมเล่นตามแผนของฉันได้และชนะทุกครั้ง", category: 'trick', isTrick: true },
+  { id: 39, text: "ฉันไม่เคยเสิร์ฟเสียเลยแม้แต่ลูกเดียวในรอบ 3 เดือน", category: 'trick', isTrick: true },
+  { id: 40, text: "ฉันมั่นใจว่าฝีมือของฉันเหนือกว่านักกีฬาทีมชาติบางคน", category: 'trick', isTrick: true },
 ];
 
-type QuizState = "intro" | "playing" | "result";
-
-export default function QuizPage() {
+export default function AssessmentQuizPage() {
   const router = useRouter();
-  const [quizState, setQuizState] = useState<QuizState>("intro");
-  const [currentQuestion, setCurrentQuestion] = useState(0);
-  const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
+  const supabase = createClient();
+  const [activeQuestions, setActiveQuestions] = useState<Question[]>([]);
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<number[]>([]);
-  const [timeLeft, setTimeLeft] = useState(30);
-  const [showCorrect, setShowCorrect] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
 
-  // Timer
+  // Initialize Questions - Tree/Random Logic
   useEffect(() => {
-    if (quizState !== "playing" || showCorrect) return;
+    if (isInitialized) return;
 
-    const timer = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev <= 1) {
-          handleTimeout();
-          return 30;
-        }
-        return prev - 1;
-      });
-    }, 1000);
+    // 1. Mandatory Core Questions (Foundation)
+    const coreIds = [1, 6, 7, 21, 22, 23];
+    const coreQs = QUESTION_POOL.filter(q => coreIds.includes(q.id));
 
-    return () => clearInterval(timer);
-  }, [quizState, currentQuestion, showCorrect]);
+    // 2. Random selection from remaining technical/tactical
+    const remainingTech = QUESTION_POOL.filter(q =>
+      q.category === 'technical' && !coreIds.includes(q.id) && !q.isTrick);
+    const techSample = shuffleArray(remainingTech).slice(0, 8); // Pick 8 more technical
 
-  const handleTimeout = () => {
-    setAnswers([...answers, -1]);
-    moveToNext();
-  };
+    const remainingTac = QUESTION_POOL.filter(q =>
+      q.category === 'tactical' && !coreIds.includes(q.id));
+    const tacSample = shuffleArray(remainingTac).slice(0, 5); // Pick 5 more tactical
 
-  const handleAnswer = (index: number) => {
-    if (showCorrect) return;
-    setSelectedAnswer(index);
-    setShowCorrect(true);
-    setAnswers([...answers, index]);
+    const psySample = shuffleArray(QUESTION_POOL.filter(q => q.category === 'psychology')).slice(0, 3); // Pick 3 psych
 
-    setTimeout(() => {
-      moveToNext();
-    }, 1500);
-  };
+    // 3. Trick Questions (Pick 2-3)
+    const trickSample = shuffleArray(QUESTION_POOL.filter(q => q.category === 'trick')).slice(0, 3);
 
-  const moveToNext = () => {
-    if (currentQuestion < quizQuestions.length - 1) {
-      setCurrentQuestion((prev) => prev + 1);
-      setSelectedAnswer(null);
-      setShowCorrect(false);
-      setTimeLeft(30);
+    // Combine
+    let finalSet = [
+      ...coreQs,
+      ...techSample,
+      ...tacSample,
+      ...psySample,
+      ...trickSample
+    ];
+
+    // Final Shuffle to mix categories (optional, or keep grouped? Mixing is better for flow)
+    finalSet = shuffleArray(finalSet);
+
+    // Ensure we have around 25-30 questions
+    // Currently: 6 + 8 + 5 + 3 + 3 = 25 questions. Perfect.
+
+    setActiveQuestions(finalSet);
+    setIsInitialized(true);
+  }, [isInitialized]);
+
+  const currentQuestion = activeQuestions[currentQuestionIndex];
+  const progress = activeQuestions.length > 0
+    ? ((currentQuestionIndex) / activeQuestions.length) * 100
+    : 0;
+
+  // Options for Likert Scale (Tactical Only)
+  const tacticalOptions = [
+    { label: "ทำไม่ได้", score: 0, color: "bg-red-500", icon: "❌" },
+    { label: "ทำได้บ้าง", score: 25, color: "bg-orange-500", icon: "🤏" },
+    { label: "ทำได้", score: 50, color: "bg-yellow-500", icon: "👌" },
+    { label: "ทำได้ดี", score: 75, color: "bg-lime-500", icon: "✨" },
+    { label: "เชี่ยวชาญ", score: 100, color: "bg-green-500", icon: "🔥" },
+  ];
+
+  // Options for Yes/No (General, Technical, etc.)
+  const yesNoOptions = [
+    { label: "ไม่ใช่", score: 0, color: "bg-red-500", icon: "❌" },
+    { label: "ใช่", score: 100, color: "bg-green-500", icon: "✅" },
+  ];
+
+  const handleAnswer = async (score: number) => {
+    const newAnswers = [...answers, score];
+    setAnswers(newAnswers);
+
+    // Adaptive Tree Logic (Simplistic version)
+    // If user answers 'Expert' (100) on a core technical question (e.g. Clears), 
+    // we might want to inject a Harder technical question next if available?
+    // For now, sticking to the pre-selected pool but we could dynamically inject here.
+
+    if (currentQuestionIndex < activeQuestions.length - 1) {
+      setTimeout(() => {
+        setCurrentQuestionIndex(prev => prev + 1);
+      }, 150);
     } else {
-      setQuizState("result");
+      await calculateAndSaveResult(newAnswers);
     }
   };
 
-  const calculateScore = () => {
-    let correct = 0;
-    answers.forEach((answer, index) => {
-      if (answer === quizQuestions[index].correctAnswer) {
-        correct++;
+  const calculateAndSaveResult = async (finalAnswers: number[]) => {
+    setIsSubmitting(true);
+
+    let totalScore = 0;
+    let trickPenalty = 0;
+    let validQuestionCount = 0;
+
+    activeQuestions.forEach((q, index) => {
+      const score = finalAnswers[index];
+
+      if (q.category === 'trick') {
+        // Trick Logic: 
+        // If they answer 'Expert' (100) or 'Good' (75) on a blatant trick/unrealistic question
+        // We penalize.
+        if (score >= 75) {
+          trickPenalty += 10; // Heavy penalty for lying/delusion
+        }
+      } else {
+        totalScore += score;
+        validQuestionCount++;
       }
     });
-    return correct;
+
+    let averageScore = validQuestionCount > 0 ? totalScore / validQuestionCount : 0;
+
+    // Apply penalty
+    averageScore -= trickPenalty;
+    if (averageScore < 0) averageScore = 0;
+
+    // Detailed Mapping Logic per user request
+    let level = 'beginner';
+    if (averageScore >= 98) level = 'A';
+    else if (averageScore >= 95) level = 'B';
+    else if (averageScore >= 89) level = 'P+';
+    else if (averageScore >= 83) level = 'P';
+    else if (averageScore >= 76) level = 'P-';
+    else if (averageScore >= 67) level = 'S';
+    else if (averageScore >= 60) level = 'N+';
+    else if (averageScore >= 53) level = 'N';
+    else if (averageScore >= 46) level = 'N-';
+    else if (averageScore >= 36) level = 'BG+';
+    else if (averageScore >= 26) level = 'BG';
+    else if (averageScore >= 16) level = 'BG-';
+    else level = 'beginner'; // มือใหม่ / หน้าบ้าน
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+
+      if (user) {
+        const { error } = await supabase
+          .from('profiles')
+          .update({ skill_level: level })
+          .eq('id', user.id);
+
+        if (error) throw error;
+        toast.success(`ประเมินเสร็จสิ้น! ระดับของคุณคือ ${level}`);
+      } else {
+        toast.info("คุณยังไม่ได้เข้าสู่ระบบ (ผลลัพธ์จะไม่ถูกบันทึกถาวร)");
+      }
+
+      router.push(`/assessment/completed?level=${encodeURIComponent(level)}`);
+    } catch (error: any) {
+      console.error("Assessment Save Error:", {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code
+      });
+      // Show more specific error to user
+      if (error.code === '23514') { // Check constraint violation code in Postgres
+        toast.error("ไม่สามารถบันทึกระดับได้ (Database Skill Level Constraint Mismatch). กรุณาอัปเดต Database.");
+      } else {
+        toast.error(`เกิดข้อผิดพลาดในการบันทึก: ${error.message || "Unknown Error"}`);
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const getResultLevel = (score: number) => {
-    const percentage = (score / quizQuestions.length) * 100;
-    if (percentage >= 90) return { level: "pro", name: "P (Pro)" };
-    if (percentage >= 75) return { level: "strong", name: "S (Strong)" };
-    if (percentage >= 60) return { level: "normal", name: "N (Normal)" };
-    if (percentage >= 40) return { level: "bg", name: "BG (Background)" };
-    return { level: "beginner", name: "หน้าบ้าน" };
-  };
+  function shuffleArray<T>(array: T[]): T[] {
+    const arr = [...array];
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  }
 
-  // Intro Screen
-  if (quizState === "intro") {
+  if (!isInitialized || activeQuestions.length === 0 || !currentQuestion) {
     return (
-      <AppShell>
-        <div className="flex flex-col min-h-screen bg-gradient-to-b from-primary/5 to-background">
-          <header className="sticky top-0 z-10 glass-card border-b border-border/50 px-4 py-3">
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => router.back()}
-                className="w-10 h-10 rounded-full bg-muted flex items-center justify-center tap-highlight"
-              >
-                <ArrowLeftIcon size={20} className="text-foreground" />
-              </button>
-              <h1 className="text-lg font-semibold text-foreground">
-                แบบทดสอบพื้นฐาน
-              </h1>
-            </div>
-          </header>
-
-          <div className="flex-1 flex flex-col items-center justify-center p-6">
-            <div className="w-24 h-24 rounded-full bg-primary/10 flex items-center justify-center mb-6">
-              <QuizIcon size={48} className="text-primary" />
-            </div>
-
-            <h2 className="text-2xl font-bold text-foreground mb-2 text-center">
-              พร้อมทดสอบหรือยัง?
-            </h2>
-            <p className="text-muted-foreground text-center mb-8 max-w-xs">
-              ตอบคำถาม {quizQuestions.length} ข้อ เพื่อประเมินระดับฝีมือของคุณ
-            </p>
-
-            <GlassCard className="w-full max-w-sm p-4 mb-8">
-              <div className="space-y-3">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">จำนวนคำถาม</span>
-                  <span className="font-medium text-foreground">
-                    {quizQuestions.length} ข้อ
-                  </span>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">เวลาต่อข้อ</span>
-                  <span className="font-medium text-foreground">30 วินาที</span>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">หมวดหมู่</span>
-                  <span className="font-medium text-foreground">
-                    กติกา, เทคนิค, กลยุทธ์
-                  </span>
-                </div>
-              </div>
-            </GlassCard>
-
-            <Button
-              className="w-full max-w-sm h-14 text-lg font-semibold"
-              onClick={() => setQuizState("playing")}
-            >
-              เริ่มทำแบบทดสอบ
-            </Button>
-          </div>
+      <AppShell hideNav>
+        <div className="flex min-h-screen items-center justify-center">
+          <div className="animate-pulse text-muted-foreground">กำลังเตรียมชุดคำถาม...</div>
         </div>
       </AppShell>
     );
   }
 
-  // Result Screen
-  if (quizState === "result") {
-    const score = calculateScore();
-    const result = getResultLevel(score);
-    const percentage = Math.round((score / quizQuestions.length) * 100);
-
-    return (
-      <AppShell>
-        <div className="flex flex-col min-h-screen bg-gradient-to-b from-primary/5 to-background">
-          <header className="sticky top-0 z-10 glass-card border-b border-border/50 px-4 py-3">
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => router.push("/assessment")}
-                className="w-10 h-10 rounded-full bg-muted flex items-center justify-center tap-highlight"
-              >
-                <ArrowLeftIcon size={20} className="text-foreground" />
-              </button>
-              <h1 className="text-lg font-semibold text-foreground">
-                ผลการทดสอบ
-              </h1>
-            </div>
-          </header>
-
-          <div className="flex-1 p-6 space-y-6">
-            {/* Score Card */}
-            <GlassCard className="p-6 text-center">
-              <div className="mb-4">
-                <div className="w-32 h-32 mx-auto rounded-full bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center mb-4 relative">
-                  <span className="text-4xl font-bold text-primary">
-                    {percentage}%
-                  </span>
-                  <svg
-                    className="absolute inset-0 w-full h-full -rotate-90"
-                    viewBox="0 0 100 100"
-                  >
-                    <circle
-                      cx="50"
-                      cy="50"
-                      r="45"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="6"
-                      className="text-muted"
-                    />
-                    <circle
-                      cx="50"
-                      cy="50"
-                      r="45"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="6"
-                      strokeDasharray={`${percentage * 2.83} 283`}
-                      className="text-primary transition-all duration-1000"
-                    />
-                  </svg>
-                </div>
-                <p className="text-lg text-muted-foreground">
-                  ตอบถูก {score} จาก {quizQuestions.length} ข้อ
-                </p>
-              </div>
-
-              <div className="py-4 border-t border-border/50">
-                <p className="text-sm text-muted-foreground mb-2">
-                  ระดับที่ประเมินได้
-                </p>
-                <div className="flex items-center justify-center gap-2">
-                  <LevelBadge level={result.level as any} size="lg" />
-                  <span className="text-xl font-bold text-foreground">
-                    {result.name}
-                  </span>
-                </div>
-              </div>
-            </GlassCard>
-
-            {/* Category Breakdown */}
-            <GlassCard className="p-4">
-              <h3 className="font-semibold text-foreground mb-4">
-                ผลตามหมวดหมู่
-              </h3>
-              <div className="space-y-3">
-                {["กติกา", "เทคนิค", "กลยุทธ์"].map((category) => {
-                  const categoryQuestions = quizQuestions.filter(
-                    (q) => q.category === category
-                  );
-                  const categoryCorrect = categoryQuestions.filter(
-                    (q, i) =>
-                      answers[quizQuestions.indexOf(q)] === q.correctAnswer
-                  ).length;
-                  const categoryPercent = Math.round(
-                    (categoryCorrect / categoryQuestions.length) * 100
-                  );
-
-                  return (
-                    <div key={category}>
-                      <div className="flex justify-between text-sm mb-1">
-                        <span className="text-foreground">{category}</span>
-                        <span className="text-muted-foreground">
-                          {categoryCorrect}/{categoryQuestions.length}
-                        </span>
-                      </div>
-                      <div className="h-2 bg-muted rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-primary rounded-full transition-all duration-500"
-                          style={{ width: `${categoryPercent}%` }}
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </GlassCard>
-
-            {/* Actions */}
-            <div className="space-y-3">
-              <Button
-                className="w-full h-12"
-                onClick={() => router.push("/assessment")}
-              >
-                กลับหน้าศูนย์วัดระดับ
-              </Button>
-              <Button
-                variant="outline"
-                className="w-full h-12 bg-transparent"
-                onClick={() => {
-                  setQuizState("intro");
-                  setCurrentQuestion(0);
-                  setAnswers([]);
-                  setSelectedAnswer(null);
-                  setShowCorrect(false);
-                  setTimeLeft(30);
-                }}
-              >
-                ทำแบบทดสอบอีกครั้ง
-              </Button>
-            </div>
-          </div>
-        </div>
-      </AppShell>
-    );
-  }
-
-  // Playing Screen
-  const question = quizQuestions[currentQuestion];
+  // Decide which options to use
+  const currentOptions = currentQuestion.category === 'tactical' ? tacticalOptions : yesNoOptions;
 
   return (
-    <AppShell>
-      <div className="flex flex-col min-h-screen bg-gradient-to-b from-primary/5 to-background">
-        {/* Header with Progress */}
-        <header className="sticky top-0 z-10 glass-card border-b border-border/50 px-4 py-3">
-          <div className="flex items-center justify-between mb-2">
+    <AppShell hideNav>
+      <div className="flex flex-col min-h-screen bg-background">
+        {/* Header */}
+        <header className="sticky top-0 z-10 glass-card px-4 py-3 border-b border-border/50">
+          <div className="flex items-center gap-3">
             <button
               onClick={() => router.back()}
               className="w-10 h-10 rounded-full bg-muted flex items-center justify-center tap-highlight"
             >
               <ArrowLeftIcon size={20} className="text-foreground" />
             </button>
-            <span className="text-sm font-medium text-foreground">
-              ข้อ {currentQuestion + 1}/{quizQuestions.length}
-            </span>
-            <div
-              className={cn(
-                "w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm",
-                timeLeft <= 10
-                  ? "bg-red-100 text-red-600"
-                  : "bg-primary/10 text-primary"
-              )}
-            >
-              {timeLeft}
+            <div className="flex-1">
+              <h1 className="text-base font-semibold text-foreground leading-tight">
+                แบบทดสอบวัดระดับ (Advanced)
+              </h1>
+              <div className="flex items-center gap-2 mt-1">
+                <div className="h-1.5 flex-1 bg-muted rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-primary transition-all duration-300 ease-out"
+                    style={{ width: `${progress}%` }}
+                  />
+                </div>
+                <span className="text-xs text-muted-foreground font-medium">
+                  {currentQuestionIndex + 1}/{activeQuestions.length}
+                </span>
+              </div>
             </div>
-          </div>
-          {/* Progress Bar */}
-          <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-            <div
-              className="h-full bg-primary rounded-full transition-all duration-300"
-              style={{
-                width: `${((currentQuestion + 1) / quizQuestions.length) * 100}%`,
-              }}
-            />
           </div>
         </header>
 
-        <div className="flex-1 p-4 flex flex-col">
-          {/* Category Badge */}
-          <div className="mb-4">
-            <span className="px-3 py-1 bg-primary/10 text-primary text-sm font-medium rounded-full">
-              {question.category}
+        {/* Content */}
+        <div className="flex-1 p-4 flex flex-col justify-center max-w-lg mx-auto w-full">
+          <div className="mb-4 flex justify-center">
+            <span className={cn(
+              "px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider",
+              currentQuestion.category === 'psychology' ? "bg-purple-100 text-purple-700" :
+                currentQuestion.category === 'technical' ? "bg-blue-100 text-blue-700" :
+                  currentQuestion.category === 'tactical' ? "bg-orange-100 text-orange-700" :
+                    currentQuestion.isTrick ? "bg-gray-100 text-gray-500" : // Hide Trick label in real UI? Maybe keep it secret
+                      "bg-gray-100 text-gray-700"
+            )}>
+              {/* Don't show 'Trick' to user, show General or something else */}
+              {currentQuestion.isTrick ? "General" : currentQuestion.category}
             </span>
           </div>
 
-          {/* Question */}
-          <GlassCard className="p-5 mb-6">
-            <h2 className="text-lg font-semibold text-foreground leading-relaxed">
-              {question.question}
+          <div className="mb-8 text-center bg-violet-50/50 p-6 rounded-3xl border border-violet-100 min-h-[160px] flex flex-col items-center justify-center">
+            <h2 className="text-xl font-bold text-foreground leading-snug">
+              "{currentQuestion.text}"
             </h2>
-          </GlassCard>
+          </div>
 
-          {/* Options */}
-          <div className="space-y-3 flex-1">
-            {question.options.map((option, index) => {
-              const isSelected = selectedAnswer === index;
-              const isCorrect = index === question.correctAnswer;
-              const showResult = showCorrect;
-
-              return (
-                <button
-                  key={index}
-                  onClick={() => handleAnswer(index)}
-                  disabled={showCorrect}
+          <div className={cn(
+            "grid gap-2",
+            currentQuestion.category === 'tactical' ? "grid-cols-5" : "grid-cols-2"
+          )}>
+            {currentOptions.map((option, idx) => (
+              <button
+                key={idx}
+                className={cn(
+                  "flex flex-col items-center gap-2 group transition-all active:scale-95",
+                  isSubmitting && "opacity-50 pointer-events-none"
+                )}
+                onClick={() => handleAnswer(option.score)}
+              >
+                <div
                   className={cn(
-                    "w-full p-4 rounded-2xl text-left transition-all duration-200 tap-highlight",
-                    "border-2",
-                    !showResult && !isSelected && "bg-card border-border/50",
-                    !showResult && isSelected && "bg-primary/10 border-primary",
-                    showResult &&
-                      isCorrect &&
-                      "bg-green-50 border-green-500 text-green-800",
-                    showResult &&
-                      isSelected &&
-                      !isCorrect &&
-                      "bg-red-50 border-red-500 text-red-800",
-                    showResult &&
-                      !isSelected &&
-                      !isCorrect &&
-                      "bg-card border-border/50 opacity-50"
+                    "rounded-2xl flex items-center justify-center text-white text-xl shadow-md transition-transform group-hover:-translate-y-1",
+                    option.color,
+                    currentQuestion.category === 'tactical' ? "w-12 h-12 sm:w-14 sm:h-14" : "w-full h-16 sm:h-20"
                   )}
                 >
-                  <div className="flex items-center gap-3">
-                    <div
-                      className={cn(
-                        "w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium flex-shrink-0",
-                        !showResult && "bg-muted text-muted-foreground",
-                        showResult && isCorrect && "bg-green-500 text-white",
-                        showResult &&
-                          isSelected &&
-                          !isCorrect &&
-                          "bg-red-500 text-white"
-                      )}
-                    >
-                      {showResult && isCorrect ? (
-                        <CheckIcon size={16} />
-                      ) : showResult && isSelected && !isCorrect ? (
-                        <XIcon size={16} />
-                      ) : (
-                        String.fromCharCode(65 + index)
-                      )}
-                    </div>
-                    <span className="font-medium">{option}</span>
-                  </div>
-                </button>
-              );
-            })}
+                  {option.icon}
+                </div>
+                <span className="text-[10px] sm:text-xs font-medium text-center text-foreground/80 leading-tight px-1">
+                  {option.label}
+                </span>
+              </button>
+            ))}
           </div>
+
+          {isSubmitting && (
+            <div className="mt-8 text-center text-muted-foreground animate-pulse">
+              กำลังวิเคราะห์ทักษะและประเมินระดับ...
+            </div>
+          )}
         </div>
       </div>
     </AppShell>
-  );
-}
-
-function QuizIcon({
-  size = 24,
-  className,
-}: {
-  size?: number;
-  className?: string;
-}) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      className={className}
-    >
-      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="1.5" />
-      <path
-        d="M9 9C9 7.34315 10.3431 6 12 6C13.6569 6 15 7.34315 15 9C15 10.3062 14.1652 11.4175 13 11.8293V13"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-      />
-      <circle cx="12" cy="17" r="1" fill="currentColor" />
-    </svg>
-  );
-}
-
-function XIcon({ size = 24, className }: { size?: number; className?: string }) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      className={className}
-    >
-      <path
-        d="M18 6L6 18M6 6L18 18"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
   );
 }

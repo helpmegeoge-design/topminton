@@ -2,504 +2,471 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Icons } from "@/components/icons";
 import { cn } from "@/lib/utils";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface Player {
   id: string;
   name: string;
-  avatar: string;
 }
 
 interface Match {
   id: string;
-  round: number;
   court: number;
   teamA: Player[];
   teamB: Player[];
   scoreA?: number;
   scoreB?: number;
-  status: "pending" | "playing" | "completed";
+  status: "playing" | "completed";
+  startedAt?: number;
+  duration?: number;
+  isInitialGame: boolean;
+  round?: number; // Only for Full Rotation mode
 }
 
-const mockPlayers: Player[] = [
-  { id: "1", name: "สมชาย", avatar: "/images/avatars/avatar-1.jpg" },
-  { id: "2", name: "วิชัย", avatar: "/images/avatars/avatar-2.jpg" },
-  { id: "3", name: "สุภาพ", avatar: "/images/avatars/avatar-3.jpg" },
-  { id: "4", name: "ปรีชา", avatar: "/images/avatars/avatar-4.jpg" },
-  { id: "5", name: "อารี", avatar: "/images/avatars/avatar-1.jpg" },
-  { id: "6", name: "นิดา", avatar: "/images/avatars/avatar-2.jpg" },
-  { id: "7", name: "กิม", avatar: "/images/avatars/avatar-3.jpg" },
-  { id: "8", name: "นัท", avatar: "/images/avatars/avatar-4.jpg" },
-];
+interface PlayerQueueItem {
+  players: Player[];
+}
 
-const generateMatches = (): Match[] => {
-  return [
-    {
-      id: "1",
-      round: 1,
-      court: 1,
-      teamA: [mockPlayers[0], mockPlayers[1]],
-      teamB: [mockPlayers[2], mockPlayers[3]],
-      scoreA: 21,
-      scoreB: 18,
-      status: "completed",
-    },
-    {
-      id: "2",
-      round: 1,
-      court: 2,
-      teamA: [mockPlayers[4], mockPlayers[5]],
-      teamB: [mockPlayers[6], mockPlayers[7]],
-      scoreA: 15,
-      scoreB: 21,
-      status: "completed",
-    },
-    {
-      id: "3",
-      round: 2,
-      court: 1,
-      teamA: [mockPlayers[0], mockPlayers[2]],
-      teamB: [mockPlayers[4], mockPlayers[6]],
-      status: "playing",
-    },
-    {
-      id: "4",
-      round: 2,
-      court: 2,
-      teamA: [mockPlayers[1], mockPlayers[3]],
-      teamB: [mockPlayers[5], mockPlayers[7]],
-      status: "pending",
-    },
-  ];
-};
+interface PlayerStat {
+  id: string;
+  name: string;
+  matches: number;
+  wins: number;
+  totalScore: number;
+}
 
 export default function TeamGeneratorResultPage() {
-  const [matches, setMatches] = useState<Match[]>([]);
-  const [showCutscene, setShowCutscene] = useState(false);
-  const [cutsceneMatch, setCutsceneMatch] = useState<Match | null>(null);
-  const [cutscenePhase, setCutscenePhase] = useState<"vs" | "result">("vs");
+  const router = useRouter();
+  const [loading, setLoading] = useState(true);
+  const [winnerStaysMode, setWinnerStaysMode] = useState(true);
+
+  // Dynamic State
+  const [playerQueue, setPlayerQueue] = useState<PlayerQueueItem[]>([]);
+  const [activeMatches, setActiveMatches] = useState<Match[]>([]);
+  const [history, setHistory] = useState<Match[]>([]);
+  const [playerStats, setPlayerStats] = useState<PlayerStat[]>([]);
+
+  // UI State
+  const [showScoreModal, setShowScoreModal] = useState(false);
+  const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
+  const [scoreA, setScoreA] = useState("");
+  const [scoreB, setScoreB] = useState("");
+  const [now, setNow] = useState(Date.now());
+  const [activeTab, setActiveTab] = useState("matches");
+  const [isFullScreen, setIsFullScreen] = useState(false);
 
   useEffect(() => {
-    setMatches(generateMatches());
+    const handleFullscreenChange = () => {
+      setIsFullScreen(!!document.fullscreenElement);
+    };
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
   }, []);
 
-  const openCutscene = (match: Match) => {
-    setCutsceneMatch(match);
-    setCutscenePhase("vs");
-    setShowCutscene(true);
-
-    // Auto transition to result after 2 seconds
-    setTimeout(() => {
-      setCutscenePhase("result");
-    }, 2000);
+  const toggleFullScreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch((err) => {
+        console.error(`Error attempting to enable full-screen mode: ${err.message}`);
+      });
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+      }
+    }
   };
 
-  const completedMatches = matches.filter((m) => m.status === "completed");
-  const playingMatches = matches.filter((m) => m.status === "playing");
-  const pendingMatches = matches.filter((m) => m.status === "pending");
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
 
-  // Calculate stats
-  const playerStats = mockPlayers.map((player) => {
-    const playerMatches = completedMatches.filter(
-      (m) =>
-        m.teamA.some((p) => p.id === player.id) ||
-        m.teamB.some((p) => p.id === player.id)
-    );
-    const wins = playerMatches.filter((m) => {
-      const isTeamA = m.teamA.some((p) => p.id === player.id);
-      return isTeamA ? (m.scoreA || 0) > (m.scoreB || 0) : (m.scoreB || 0) > (m.scoreA || 0);
-    }).length;
-    return { ...player, matches: playerMatches.length, wins };
-  });
+  useEffect(() => {
+    const settingsStr = sessionStorage.getItem("teamGeneratorSettings");
+    if (!settingsStr) {
+      router.push("/tools/team-generator");
+      return;
+    }
+
+    const settings = JSON.parse(settingsStr);
+    const mode = settings.winnerStaysMode !== undefined ? settings.winnerStaysMode : true;
+    setWinnerStaysMode(mode);
+
+    const playerNames: string[] = settings.players || [];
+    const courtCount: number = settings.courts || 1;
+
+    // Create Players
+    const players: Player[] = playerNames.map((name, i) => ({
+      id: `p-${i}`,
+      name,
+    }));
+
+    const stats = players.map(p => ({ id: p.id, name: p.name, matches: 0, wins: 0, totalScore: 0 }));
+    setPlayerStats(stats);
+
+    if (mode) {
+      // WINNER STAYS MODE INITIALIZATION
+      const initialQueue: PlayerQueueItem[] = [];
+      for (let i = 0; i < players.length; i += 2) {
+        if (i + 1 < players.length) {
+          initialQueue.push({ players: [players[i], players[i + 1]] });
+        }
+      }
+      const shuffledQueue = [...initialQueue].sort(() => Math.random() - 0.5);
+      const matches: Match[] = [];
+      const currentQueue = [...shuffledQueue];
+
+      for (let c = 1; c <= courtCount; c++) {
+        if (currentQueue.length >= 2) {
+          const teamA = currentQueue.shift()!;
+          const teamB = currentQueue.shift()!;
+          matches.push({
+            id: `match-c${c}-initial`,
+            court: c,
+            teamA: teamA.players,
+            teamB: teamB.players,
+            status: "playing",
+            isInitialGame: true,
+          });
+        }
+      }
+      setPlayerQueue(currentQueue);
+      setActiveMatches(matches);
+    } else {
+      // FULL ROTATION MODE (4 OUT) INITIALIZATION
+      // Simply treat everyone as individual queue or pre-generate rounds
+      // For dynamic "Full Rotation", we pool players and take 4 for each court.
+      const individualQueue = [...players].sort(() => Math.random() - 0.5);
+      const matches: Match[] = [];
+      const pool = [...individualQueue];
+
+      for (let c = 1; c <= courtCount; c++) {
+        if (pool.length >= 4) {
+          matches.push({
+            id: `match-c${c}-r1`,
+            court: c,
+            teamA: [pool.shift()!, pool.shift()!],
+            teamB: [pool.shift()!, pool.shift()!],
+            status: "playing",
+            isInitialGame: false,
+            round: 1
+          });
+        }
+      }
+      // PlayerQueue in this mode will store individual players for flexibility
+      setPlayerQueue(pool.map(p => ({ players: [p] })));
+      setActiveMatches(matches);
+    }
+
+    setLoading(false);
+  }, [router]);
+
+  const handleStartMatch = (matchId: string) => {
+    setActiveMatches(prev => prev.map(m => {
+      if (m.id === matchId) return { ...m, startedAt: Date.now() };
+      return m;
+    }));
+  };
+
+  const handleFinishMatch = (match: Match) => {
+    setSelectedMatch(match);
+    setScoreA("");
+    setScoreB("");
+    setShowScoreModal(true);
+  };
+
+  const confirmFinish = (withScore: boolean) => {
+    if (!selectedMatch) return;
+
+    const sA = withScore ? parseInt(scoreA) || 0 : 0;
+    const sB = withScore ? parseInt(scoreB) || 0 : 0;
+    const duration = selectedMatch.startedAt ? Math.floor((Date.now() - selectedMatch.startedAt) / 1000) : 0;
+
+    const completedMatch: Match = { ...selectedMatch, status: "completed", scoreA: sA, scoreB: sB, duration };
+    setHistory(prev => [completedMatch, ...prev]);
+
+    // Update Stats
+    setPlayerStats(prev => {
+      const stats = [...prev];
+      const winA = withScore ? sA > sB : false;
+      const winB = withScore ? sB > sA : false;
+
+      const update = (p: Player, score: number, win: boolean) => {
+        const idx = stats.findIndex(s => s.id === p.id);
+        if (idx !== -1) {
+          stats[idx].matches += 1; // Always increment games played
+          if (withScore) {
+            stats[idx].totalScore += score;
+            if (win) stats[idx].wins += 1;
+          }
+        }
+      };
+
+      selectedMatch.teamA.forEach(p => update(p, sA, winA));
+      selectedMatch.teamB.forEach(p => update(p, sB, winB));
+      return stats;
+    });
+
+    // Logic Switch
+    if (winnerStaysMode) {
+      // WINNER STAYS LOGIC (Same as before)
+      let nextTeamA: Player[] = [];
+      let nextTeamB: Player[] = [];
+      let updatedQueue = [...playerQueue];
+
+      if (selectedMatch.isInitialGame) {
+        const winner = sA > sB ? selectedMatch.teamA : selectedMatch.teamB;
+        const loser = sA > sB ? selectedMatch.teamB : selectedMatch.teamA;
+        nextTeamA = winner;
+        if (updatedQueue.length > 0) nextTeamB = updatedQueue.shift()!.players;
+        updatedQueue.push({ players: loser });
+      } else {
+        const finishedChamp = selectedMatch.teamA;
+        const finishedNewcomer = selectedMatch.teamB;
+        nextTeamA = finishedNewcomer;
+        if (updatedQueue.length > 0) nextTeamB = updatedQueue.shift()!.players;
+        updatedQueue.push({ players: finishedChamp });
+      }
+
+      const nextMatch: Match = {
+        id: `match-c${selectedMatch.court}-${Date.now()}`,
+        court: selectedMatch.court,
+        teamA: nextTeamA,
+        teamB: nextTeamB,
+        status: "playing",
+        isInitialGame: false,
+        startedAt: Date.now(),
+      };
+
+      setActiveMatches(prev => {
+        const others = prev.filter(m => m.court !== selectedMatch.court);
+        return [...others, nextMatch].sort((a, b) => a.court - b.court);
+      });
+      setPlayerQueue(updatedQueue);
+    } else {
+      // FULL ROTATION LOGIC (4 OUT)
+      // Everyone in current match goes back to individual queue
+      const allFinished = [...selectedMatch.teamA, ...selectedMatch.teamB];
+      let updatedQueue = [...playerQueue];
+
+      // Add all 4 back to bottom of queue
+      allFinished.forEach(p => updatedQueue.push({ players: [p] }));
+
+      // Take 4 from top of individual queue for next match
+      let nextMatch: Match | null = null;
+      if (updatedQueue.length >= 4) {
+        nextMatch = {
+          id: `match-c${selectedMatch.court}-${Date.now()}`,
+          court: selectedMatch.court,
+          teamA: [updatedQueue.shift()!.players[0], updatedQueue.shift()!.players[0]],
+          teamB: [updatedQueue.shift()!.players[0], updatedQueue.shift()!.players[0]],
+          status: "playing",
+          isInitialGame: false,
+          startedAt: Date.now(),
+        };
+      }
+
+      setActiveMatches(prev => {
+        const others = prev.filter(m => m.court !== selectedMatch.court);
+        return nextMatch ? [...others, nextMatch].sort((a, b) => a.court - b.court) : others;
+      });
+      setPlayerQueue(updatedQueue);
+    }
+
+    setShowScoreModal(false);
+    setSelectedMatch(null);
+  };
+
+  const formatDuration = (seconds: number) => {
+    const min = Math.floor(seconds / 60);
+    const sec = seconds % 60;
+    return `${min}:${sec.toString().padStart(2, '0')}`;
+  };
+
+  if (loading) return null;
 
   return (
     <AppShell hideNav>
-      {/* Header */}
       <div className="sticky top-0 z-50 bg-background/80 backdrop-blur-xl border-b border-border">
         <div className="flex items-center justify-between px-4 h-14">
-          <Link href="/tools/team-generator" className="p-2 -ml-2 tap-highlight">
+          <Link href="/tools/team-generator" className="p-2 -ml-2">
             <Icons.chevronLeft className="w-6 h-6" />
           </Link>
-          <h1 className="font-semibold text-lg">ผลการจับคู่</h1>
-          <button className="p-2 -mr-2 tap-highlight">
-            <Icons.share className="w-5 h-5" />
-          </button>
+          <div className="text-center flex-1">
+            <h1 className="font-black text-sm uppercase tracking-tighter">Badminton Manager</h1>
+            <p className="text-[9px] font-bold text-primary uppercase">{winnerStaysMode ? "Winner Stays (ชนะวนต่อ)" : "Full Rotation (ออกแบบยกชุด)"}</p>
+          </div>
+          <div className="flex items-center gap-1 -mr-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={toggleFullScreen}
+              className="text-primary hover:bg-primary/10 hover:text-primary"
+              title={isFullScreen ? "Exit Full Screen" : "Enter Full Screen"}
+            >
+              {isFullScreen ? <Icons.close className="w-5 h-5" /> : <Icons.maximize className="w-5 h-5" />}
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-muted-foreground hover:text-foreground"
+            >
+              <Icons.share className="w-5 h-5" />
+            </Button>
+          </div>
         </div>
+
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="w-full h-12 rounded-none bg-transparent border-b border-border/50 grid grid-cols-2">
+            <TabsTrigger value="matches" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent font-black text-xs uppercase">
+              สนามแข่งขัน
+            </TabsTrigger>
+            <TabsTrigger value="members" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent font-black text-xs uppercase">
+              คิว & สถิติ
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
       </div>
 
-      <div className="p-4 pb-24 space-y-4">
-        {/* Summary Stats */}
-        <div className="grid grid-cols-3 gap-3">
-          <GlassCard className="p-3 text-center">
-            <p className="text-2xl font-bold text-primary">{matches.length}</p>
-            <p className="text-xs text-muted-foreground">เกมทั้งหมด</p>
-          </GlassCard>
-          <GlassCard className="p-3 text-center">
-            <p className="text-2xl font-bold text-[#31A24C]">{completedMatches.length}</p>
-            <p className="text-xs text-muted-foreground">เสร็จสิ้น</p>
-          </GlassCard>
-          <GlassCard className="p-3 text-center">
-            <p className="text-2xl font-bold text-[#F7B928]">{playingMatches.length}</p>
-            <p className="text-xs text-muted-foreground">กำลังเล่น</p>
-          </GlassCard>
-        </div>
-
-        {/* Current Match */}
-        {playingMatches.length > 0 && (
-          <div>
-            <h3 className="font-semibold mb-3 flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-[#31A24C] animate-pulse" />
-              กำลังเล่น
-            </h3>
-            {playingMatches.map((match) => (
-              <GlassCard
-                key={match.id}
-                className="p-4 ring-2 ring-[#31A24C] cursor-pointer tap-highlight"
-                onClick={() => openCutscene(match)}
-              >
-                <div className="flex items-center justify-between mb-3">
-                  <Badge variant="outline">รอบ {match.round}</Badge>
-                  <Badge className="bg-[#31A24C]">คอร์ท {match.court}</Badge>
-                </div>
-                <div className="flex items-center gap-4">
-                  {/* Team A */}
-                  <div className="flex-1 text-center">
-                    <div className="flex justify-center -space-x-2 mb-2">
-                      {match.teamA.map((p) => (
-                        <Image
-                          key={p.id}
-                          src={p.avatar || "/placeholder.svg"}
-                          alt={p.name}
-                          width={40}
-                          height={40}
-                          className="rounded-full ring-2 ring-background"
-                        />
-                      ))}
-                    </div>
-                    <p className="text-sm font-medium">
-                      {match.teamA.map((p) => p.name).join(" & ")}
-                    </p>
-                  </div>
-
-                  <div className="text-xl font-bold text-muted-foreground">VS</div>
-
-                  {/* Team B */}
-                  <div className="flex-1 text-center">
-                    <div className="flex justify-center -space-x-2 mb-2">
-                      {match.teamB.map((p) => (
-                        <Image
-                          key={p.id}
-                          src={p.avatar || "/placeholder.svg"}
-                          alt={p.name}
-                          width={40}
-                          height={40}
-                          className="rounded-full ring-2 ring-background"
-                        />
-                      ))}
-                    </div>
-                    <p className="text-sm font-medium">
-                      {match.teamB.map((p) => p.name).join(" & ")}
-                    </p>
-                  </div>
-                </div>
-              </GlassCard>
-            ))}
-          </div>
-        )}
-
-        {/* Completed Matches */}
-        {completedMatches.length > 0 && (
-          <div>
-            <h3 className="font-semibold mb-3">เกมที่เสร็จแล้ว</h3>
-            <div className="space-y-3">
-              {completedMatches.map((match) => (
-                <GlassCard
-                  key={match.id}
-                  className="p-4 cursor-pointer tap-highlight"
-                  onClick={() => openCutscene(match)}
-                >
-                  <div className="flex items-center justify-between mb-3">
-                    <Badge variant="outline">รอบ {match.round}</Badge>
-                    <span className="text-xs text-muted-foreground">คอร์ท {match.court}</span>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    {/* Team A */}
-                    <div className={cn(
-                      "flex-1 text-center p-2 rounded-xl",
-                      (match.scoreA || 0) > (match.scoreB || 0) && "bg-[#31A24C]/10"
-                    )}>
-                      <div className="flex justify-center -space-x-2 mb-2">
-                        {match.teamA.map((p) => (
-                          <Image
-                            key={p.id}
-                            src={p.avatar || "/placeholder.svg"}
-                            alt={p.name}
-                            width={32}
-                            height={32}
-                            className="rounded-full ring-2 ring-background"
-                          />
-                        ))}
-                      </div>
-                      <p className="text-xs">{match.teamA.map((p) => p.name).join(" & ")}</p>
-                      <p className={cn(
-                        "text-2xl font-bold mt-1",
-                        (match.scoreA || 0) > (match.scoreB || 0) ? "text-[#31A24C]" : "text-muted-foreground"
-                      )}>
-                        {match.scoreA}
-                      </p>
-                    </div>
-
-                    <div className="text-sm font-medium text-muted-foreground">-</div>
-
-                    {/* Team B */}
-                    <div className={cn(
-                      "flex-1 text-center p-2 rounded-xl",
-                      (match.scoreB || 0) > (match.scoreA || 0) && "bg-[#31A24C]/10"
-                    )}>
-                      <div className="flex justify-center -space-x-2 mb-2">
-                        {match.teamB.map((p) => (
-                          <Image
-                            key={p.id}
-                            src={p.avatar || "/placeholder.svg"}
-                            alt={p.name}
-                            width={32}
-                            height={32}
-                            className="rounded-full ring-2 ring-background"
-                          />
-                        ))}
-                      </div>
-                      <p className="text-xs">{match.teamB.map((p) => p.name).join(" & ")}</p>
-                      <p className={cn(
-                        "text-2xl font-bold mt-1",
-                        (match.scoreB || 0) > (match.scoreA || 0) ? "text-[#31A24C]" : "text-muted-foreground"
-                      )}>
-                        {match.scoreB}
-                      </p>
-                    </div>
-                  </div>
-                </GlassCard>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Player Stats */}
-        <GlassCard className="p-4">
-          <h3 className="font-semibold mb-3">สถิติผู้เล่น</h3>
-          <div className="space-y-2">
-            {playerStats
-              .sort((a, b) => b.wins - a.wins)
-              .map((player, index) => (
-                <div key={player.id} className="flex items-center gap-3 p-2 rounded-xl bg-muted/50">
-                  <span className={cn(
-                    "w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold",
-                    index === 0 && "bg-[#F7B928] text-white",
-                    index === 1 && "bg-[#C0C0C0] text-white",
-                    index === 2 && "bg-[#CD7F32] text-white",
-                    index > 2 && "bg-muted text-muted-foreground"
+      <div className="p-4 pb-32">
+        {activeTab === "matches" ? (
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 gap-4">
+              {activeMatches.map((match) => {
+                const elapsed = match.startedAt ? Math.floor((now - match.startedAt) / 1000) : 0;
+                return (
+                  <GlassCard key={match.id} className={cn(
+                    "p-0 border-2 overflow-hidden transition-all duration-300 shadow-xl",
+                    !match.startedAt ? "border-primary/40" : "border-[#31A24C]"
                   )}>
-                    {index + 1}
-                  </span>
-                  <Image
-                    src={player.avatar || "/placeholder.svg"}
-                    alt={player.name}
-                    width={32}
-                    height={32}
-                    className="rounded-full"
-                  />
-                  <div className="flex-1">
-                    <p className="font-medium text-sm">{player.name}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm font-semibold text-[#31A24C]">{player.wins} ชนะ</p>
-                    <p className="text-xs text-muted-foreground">{player.matches} เกม</p>
-                  </div>
-                </div>
-              ))}
-          </div>
-        </GlassCard>
+                    <div className="p-5">
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-2">
+                          <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center font-black text-white", match.startedAt ? "bg-[#31A24C]" : "bg-primary")}>
+                            {match.court}
+                          </div>
+                          <span className="text-[10px] font-black text-muted-foreground uppercase">Court Status</span>
+                        </div>
+                        <div className="font-mono font-black text-lg text-[#31A24C] bg-[#31A24C]/10 px-3 py-1 rounded-lg flex items-center gap-2">
+                          <Icons.clock className="w-4 h-4" />
+                          {formatDuration(elapsed)}
+                        </div>
+                      </div>
 
-        {/* Pending Matches */}
-        {pendingMatches.length > 0 && (
-          <div>
-            <h3 className="font-semibold mb-3 text-muted-foreground">เกมถัดไป</h3>
-            <div className="space-y-3 opacity-60">
-              {pendingMatches.map((match) => (
-                <GlassCard key={match.id} className="p-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <Badge variant="outline">รอบ {match.round}</Badge>
-                    <span className="text-xs text-muted-foreground">คอร์ท {match.court}</span>
-                  </div>
-                  <div className="flex items-center justify-center gap-4 text-sm">
-                    <span>{match.teamA.map((p) => p.name).join(" & ")}</span>
-                    <span className="text-muted-foreground">vs</span>
-                    <span>{match.teamB.map((p) => p.name).join(" & ")}</span>
-                  </div>
-                </GlassCard>
-              ))}
+                      <div className="flex items-center justify-between py-4 text-center">
+                        <div className="flex-1">
+                          <p className="text-[9px] font-black text-muted-foreground mb-1">TEAM A</p>
+                          <p className="font-black text-base">{match.teamA.map(p => p.name).join(" & ")}</p>
+                        </div>
+                        <div className="px-4 text-xl font-black italic text-muted-foreground/20">VS</div>
+                        <div className="flex-1">
+                          <p className="text-[9px] font-black text-muted-foreground mb-1">TEAM B</p>
+                          <p className="font-black text-base">{match.teamB.map(p => p.name).join(" & ")}</p>
+                        </div>
+                      </div>
+                    </div>
+                    <Button
+                      className={cn("w-full h-14 rounded-none font-black text-lg", match.startedAt ? "bg-[#31A24C] hover:bg-[#31A24C]/90" : "bg-primary")}
+                      onClick={() => !match.startedAt ? handleStartMatch(match.id) : handleFinishMatch(match)}
+                    >
+                      {match.startedAt ? (
+                        <><Icons.check className="w-6 h-6 mr-2" /> จบเกม & รันคิวถัดไป</>
+                      ) : (
+                        <><Icons.play className="w-6 h-6 mr-2 fill-current" /> เริ่มการแข่ง</>
+                      )}
+                    </Button>
+                  </GlassCard>
+                );
+              })}
             </div>
+
+            {history.length > 0 && (
+              <div className="space-y-3">
+                <h3 className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em]">Match History</h3>
+                {history.slice(0, 3).map(m => (
+                  <GlassCard key={m.id} className="p-3 text-xs flex items-center justify-between bg-muted/20">
+                    <span className="font-black">C{m.court}</span>
+                    <span className="font-bold">{m.teamA.map(p => p.name).join("&")} ({m.scoreA}) - ({m.scoreB}) {m.teamB.map(p => p.name).join("&")}</span>
+                    <span className="text-[10px] opacity-40">{formatDuration(m.duration || 0)}</span>
+                  </GlassCard>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="space-y-8">
+            <section>
+              <h3 className="text-[10px] font-black text-primary uppercase tracking-[0.2em] mb-4">Player Queue ({playerQueue.length} items)</h3>
+              <div className="space-y-2">
+                {playerQueue.map((item, i) => (
+                  <div key={i} className="p-3 bg-secondary/50 rounded-xl border border-dashed text-xs font-bold flex gap-3 items-center">
+                    <span className="w-5 h-5 rounded-full bg-background flex items-center justify-center text-[10px]">{i + 1}</span>
+                    {item.players.map(p => p.name).join(" & ")}
+                  </div>
+                ))}
+              </div>
+            </section>
+            <section>
+              <h3 className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em] mb-4">Leaderboard</h3>
+              <div className="space-y-2">
+                {playerStats.sort((a, b) => b.wins - a.wins).map((s, i) => (
+                  <GlassCard key={s.id} className="p-3 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <span className="font-black text-primary">#{i + 1}</span>
+                      <span className="font-bold">{s.name}</span>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-sm font-black text-[#31A24C]">{s.wins} W </span>
+                      <span className="text-[10px] font-bold opacity-30">/ {s.matches} G</span>
+                    </div>
+                  </GlassCard>
+                ))}
+              </div>
+            </section>
           </div>
         )}
       </div>
 
-      {/* Bottom Actions */}
-      <div className="fixed bottom-0 left-0 right-0 p-4 bg-background/80 backdrop-blur-xl border-t border-border safe-area-bottom">
-        <div className="flex gap-3">
-          <Button variant="outline" size="lg" className="flex-1 bg-transparent">
-            <Icons.shuffle className="w-5 h-5 mr-2" />
-            สุ่มใหม่
-          </Button>
-          <Button size="lg" className="flex-1">
-            <Icons.share className="w-5 h-5 mr-2" />
-            แชร์ผล
-          </Button>
-        </div>
+      <div className="fixed bottom-0 left-0 right-0 p-4 bg-background border-t border-border safe-area-bottom">
+        <Button onClick={() => router.push("/tools/team-generator")} variant="outline" className="w-full h-14 border-2 border-primary text-primary font-black rounded-2xl shadow-xl">
+          <Icons.shuffle className="w-5 h-5 mr-3" /> ย้อนกลับ / ตั้งค่าใหม่
+        </Button>
       </div>
 
-      {/* Cutscene Modal */}
-      {showCutscene && cutsceneMatch && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center"
-          onClick={() => setShowCutscene(false)}
-        >
-          {/* VS Phase */}
-          {cutscenePhase === "vs" && (
-            <div className="absolute inset-0 bg-gradient-to-br from-[#FF9500] to-[#D35400] flex items-center justify-center">
-              <div className="text-center animate-in zoom-in duration-500">
-                <div className="flex items-center gap-8">
-                  {/* Team A */}
-                  <div className="text-center animate-in slide-in-from-left duration-700">
-                    <div className="flex -space-x-4 justify-center mb-4">
-                      {cutsceneMatch.teamA.map((p) => (
-                        <Image
-                          key={p.id}
-                          src={p.avatar || "/placeholder.svg"}
-                          alt={p.name}
-                          width={80}
-                          height={80}
-                          className="rounded-full ring-4 ring-white/30"
-                        />
-                      ))}
-                    </div>
-                    <p className="text-white font-bold text-lg">
-                      {cutsceneMatch.teamA.map((p) => p.name).join(" & ")}
-                    </p>
-                  </div>
-
-                  {/* VS */}
-                  <div className="animate-in zoom-in delay-300 duration-500">
-                    <span className="text-6xl font-black text-white drop-shadow-lg">VS</span>
-                  </div>
-
-                  {/* Team B */}
-                  <div className="text-center animate-in slide-in-from-right duration-700">
-                    <div className="flex -space-x-4 justify-center mb-4">
-                      {cutsceneMatch.teamB.map((p) => (
-                        <Image
-                          key={p.id}
-                          src={p.avatar || "/placeholder.svg"}
-                          alt={p.name}
-                          width={80}
-                          height={80}
-                          className="rounded-full ring-4 ring-white/30"
-                        />
-                      ))}
-                    </div>
-                    <p className="text-white font-bold text-lg">
-                      {cutsceneMatch.teamB.map((p) => p.name).join(" & ")}
-                    </p>
-                  </div>
-                </div>
-
-                <p className="text-white/60 mt-8 text-sm">แตะเพื่อปิด</p>
+      <Dialog open={showScoreModal} onOpenChange={setShowScoreModal}>
+        <DialogContent className="rounded-[40px] max-w-[95vw] w-[380px] p-0 overflow-hidden border-none shadow-2xl">
+          <div className="bg-primary p-7 text-white text-center">
+            <h2 className="text-2xl font-black italic tracking-tighter">จบเกมการแข่งขัน</h2>
+            <p className="text-primary-foreground/70 text-xs font-bold mt-1 uppercase italic">บันทึกผลเพื่อจัดลำดับคิว {winnerStaysMode ? "แบบชนะวน" : "แบบออกยกชุด"}</p>
+          </div>
+          <div className="p-8 space-y-8">
+            <div className="flex items-center justify-center gap-6">
+              <div className="text-center flex-1 space-y-3">
+                <Input type="number" placeholder="0" className="text-center text-4xl h-20 font-black rounded-3xl border-2 shadow-inner bg-secondary/30" value={scoreA} onChange={(e) => setScoreA(e.target.value)} />
+              </div>
+              <div className="text-5xl font-black text-muted-foreground/10 pt-8 italic">:</div>
+              <div className="text-center flex-1 space-y-3">
+                <Input type="number" placeholder="0" className="text-center text-4xl h-20 font-black rounded-3xl border-2 shadow-inner bg-secondary/30" value={scoreB} onChange={(e) => setScoreB(e.target.value)} />
               </div>
             </div>
-          )}
-
-          {/* Result Phase */}
-          {cutscenePhase === "result" && cutsceneMatch.status === "completed" && (
-            <div className="absolute inset-0 bg-gradient-to-br from-[#1A1A1A] to-[#2D2D2D] flex items-center justify-center">
-              <div className="text-center animate-in zoom-in duration-500">
-                <p className="text-white/60 text-sm mb-2">รอบ {cutsceneMatch.round} - คอร์ท {cutsceneMatch.court}</p>
-                
-                <div className="flex items-center gap-8 mb-8">
-                  {/* Team A */}
-                  <div className={cn(
-                    "text-center p-6 rounded-2xl transition-all",
-                    (cutsceneMatch.scoreA || 0) > (cutsceneMatch.scoreB || 0) && "bg-[#31A24C]/20 ring-2 ring-[#31A24C]"
-                  )}>
-                    <div className="flex -space-x-4 justify-center mb-4">
-                      {cutsceneMatch.teamA.map((p) => (
-                        <Image
-                          key={p.id}
-                          src={p.avatar || "/placeholder.svg"}
-                          alt={p.name}
-                          width={64}
-                          height={64}
-                          className="rounded-full ring-2 ring-white/30"
-                        />
-                      ))}
-                    </div>
-                    <p className="text-white font-medium mb-2">
-                      {cutsceneMatch.teamA.map((p) => p.name).join(" & ")}
-                    </p>
-                    <p className={cn(
-                      "text-5xl font-black",
-                      (cutsceneMatch.scoreA || 0) > (cutsceneMatch.scoreB || 0) ? "text-[#31A24C]" : "text-white/60"
-                    )}>
-                      {cutsceneMatch.scoreA}
-                    </p>
-                    {(cutsceneMatch.scoreA || 0) > (cutsceneMatch.scoreB || 0) && (
-                      <Badge className="mt-2 bg-[#31A24C]">WINNER</Badge>
-                    )}
-                  </div>
-
-                  <span className="text-3xl font-bold text-white/40">-</span>
-
-                  {/* Team B */}
-                  <div className={cn(
-                    "text-center p-6 rounded-2xl transition-all",
-                    (cutsceneMatch.scoreB || 0) > (cutsceneMatch.scoreA || 0) && "bg-[#31A24C]/20 ring-2 ring-[#31A24C]"
-                  )}>
-                    <div className="flex -space-x-4 justify-center mb-4">
-                      {cutsceneMatch.teamB.map((p) => (
-                        <Image
-                          key={p.id}
-                          src={p.avatar || "/placeholder.svg"}
-                          alt={p.name}
-                          width={64}
-                          height={64}
-                          className="rounded-full ring-2 ring-white/30"
-                        />
-                      ))}
-                    </div>
-                    <p className="text-white font-medium mb-2">
-                      {cutsceneMatch.teamB.map((p) => p.name).join(" & ")}
-                    </p>
-                    <p className={cn(
-                      "text-5xl font-black",
-                      (cutsceneMatch.scoreB || 0) > (cutsceneMatch.scoreA || 0) ? "text-[#31A24C]" : "text-white/60"
-                    )}>
-                      {cutsceneMatch.scoreB}
-                    </p>
-                    {(cutsceneMatch.scoreB || 0) > (cutsceneMatch.scoreA || 0) && (
-                      <Badge className="mt-2 bg-[#31A24C]">WINNER</Badge>
-                    )}
-                  </div>
-                </div>
-
-                <p className="text-white/60 text-sm">แตะเพื่อปิด</p>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
+            <Button className="w-full h-16 bg-[#31A24C] hover:bg-[#31A24C]/90 text-white font-black text-xl rounded-[24px]" onClick={() => confirmFinish(true)}>บันทึกและจัดคิวใหม่</Button>
+            <Button variant="ghost" className="w-full h-10 text-muted-foreground font-black text-[10px] uppercase opacity-40" onClick={() => confirmFinish(false)}>ข้ามการบันทึก</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </AppShell>
   );
 }

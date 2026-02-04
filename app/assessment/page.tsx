@@ -13,10 +13,49 @@ import {
   CheckIcon,
   StarIcon,
 } from "@/components/icons";
+import { createClient } from "@/lib/supabase/client";
+import { useEffect } from "react";
 
 export default function AssessmentPage() {
   const router = useRouter();
-  const [currentLevel] = useState<string | null>("normal");
+  const supabase = createClient();
+  const [currentLevel, setCurrentLevel] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchLevel = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data, error } = await supabase
+            .from('profiles')
+            .select('skill_level')
+            .eq('id', user.id)
+            .single();
+
+          if (data?.skill_level) {
+            // Map DB value if needed, but LevelBadge likely handles specific strings
+            // Our DB values: beginner, intermediate, advanced, strong, pro
+            // LevelBadge expects: beginner, bg, normal, strong, pro, champion
+
+            // Mapper:
+            // intermediate -> bg
+            // advanced -> normal
+            let mappedLevel = data.skill_level;
+            if (mappedLevel === 'intermediate') mappedLevel = 'bg';
+            if (mappedLevel === 'advanced') mappedLevel = 'normal';
+
+            setCurrentLevel(mappedLevel);
+          }
+        }
+      } catch (e) {
+        console.error("Error fetching level", e);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchLevel();
+  }, []);
 
   return (
     <AppShell>
@@ -37,43 +76,83 @@ export default function AssessmentPage() {
         </header>
 
         <div className="flex-1 p-4 space-y-6 pb-24">
-          {/* Current Level Card */}
-          <GlassCard className="p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-foreground">
-                ระดับปัจจุบันของคุณ
-              </h2>
-              {currentLevel ? (
-                <LevelBadge level={currentLevel as any} size="lg" />
-              ) : (
-                <span className="text-sm text-muted-foreground">
-                  ยังไม่ได้ประเมิน
-                </span>
-              )}
-            </div>
-
+          {/* Current Level Certificate Card */}
+          {/* Current Level Certificate Card - Cyber Edition */}
+          <div className="relative group overflow-hidden rounded-2xl bg-black border border-white/10 shadow-2xl">
             {currentLevel ? (
-              <div className="space-y-3">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <CheckIcon size={16} className="text-green-500" />
-                  <span>ผ่านการประเมินเมื่อ 15 ม.ค. 2569</span>
+              <>
+                {/* Cyber Glow Background */}
+                <div className="absolute top-0 right-0 w-[200px] h-[200px] bg-blue-600/20 rounded-full blur-[80px] -mr-16 -mt-16 pointer-events-none"></div>
+                <div className="absolute bottom-0 left-0 w-[150px] h-[150px] bg-purple-600/10 rounded-full blur-[60px] -ml-10 -mb-10 pointer-events-none"></div>
+                <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 pointer-events-none"></div>
+
+                {/* Neon Border Line */}
+                <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-transparent via-cyan-500 to-transparent opacity-50"></div>
+
+                <div className="p-6 relative z-10">
+                  <div className="flex items-center justify-between mb-6">
+                    <div className="flex items-center gap-2">
+                      <TrophyIcon size={16} className="text-cyan-400" />
+                      <h2 className="text-sm font-semibold text-white/80">
+                        สถานะปัจจุบัน
+                      </h2>
+                    </div>
+                    <div className="flex items-center gap-1.5 px-2 py-1 bg-green-500/10 border border-green-500/20 rounded-md">
+                      <span className="relative flex h-2 w-2">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                      </span>
+                      <span className="text-xs font-medium text-green-400">ใช้งาน</span>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col items-center mb-6 scale-110 transform transition-transform group-hover:scale-115 duration-500">
+                    <div className="relative">
+                      <div className="absolute inset-0 bg-white/10 blur-xl rounded-full"></div>
+                      <LevelBadge level={currentLevel} size="lg" className="shadow-2xl text-lg px-6 py-2 relative z-10 ring-1 ring-white/20 backdrop-blur-md" />
+                    </div>
+                    <div className="mt-3 text-xs font-medium text-white/50 bg-white/5 px-3 py-1 rounded-full backdrop-blur-sm border border-white/5">
+                      ตรวจสอบโดย AI
+                    </div>
+                  </div>
+
+                  {/* Tech Divider - Simplified */}
+                  <div className="w-full h-px bg-white/10 my-4"></div>
+
+                  <div className="flex flex-col gap-1 text-center mb-5">
+                    <p className="text-xs text-white/60">ผู้รับรองโดย</p>
+                    <p className="text-sm font-bold text-white tracking-wide">TOP BADMINTON AI</p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <Button size="sm" variant="outline" className="h-9 text-xs font-medium bg-transparent border-white/10 text-white hover:bg-white/5 hover:border-white/30 transition-all gap-2" onClick={() => router.push('/assessment/quiz')}>
+                      <span className="w-1.5 h-1.5 bg-yellow-400 rounded-full"></span>
+                      ประเมินใหม่
+                    </Button>
+                    <Button size="sm" className="h-9 text-xs font-bold bg-white text-black hover:bg-cyan-50 border-0 shadow-[0_0_15px_rgba(255,255,255,0.15)] gap-2" onClick={() => router.push(`/assessment/completed?level=${encodeURIComponent(currentLevel)}`)}>
+                      <span className="w-1.5 h-1.5 bg-cyan-600 rounded-full"></span>
+                      ดูใบรับรอง
+                    </Button>
+                  </div>
                 </div>
-                <div className="h-2 bg-muted rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-gradient-to-r from-primary to-primary/70 rounded-full transition-all duration-500"
-                    style={{ width: "65%" }}
-                  />
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  อีก 350 คะแนนถึงระดับ S
-                </p>
-              </div>
+              </>
             ) : (
-              <p className="text-sm text-muted-foreground">
-                ทำแบบทดสอบเพื่อประเมินระดับฝีมือของคุณ
-              </p>
+              <div className="p-8 text-center bg-black/40 backdrop-blur-sm">
+                <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-4 ring-1 ring-white/10">
+                  <TrophyIcon size={24} className="text-white/40" />
+                </div>
+                <h2 className="text-lg font-bold text-white mb-2">
+                  ยังไม่มีระดับฝีมือ
+                </h2>
+                <p className="text-sm text-white/60 mb-6 font-normal">
+                  เริ่มการประเมินเพื่อปลดล็อกระดับของคุณ
+                </p>
+                <Button onClick={() => router.push("/assessment/quiz")} className="w-full bg-white text-black font-bold hover:bg-zinc-200">
+                  เริ่มทำแบบทดสอบ
+                </Button>
+              </div>
             )}
-          </GlassCard>
+          </div>
 
           {/* Assessment Options */}
           <div className="space-y-4">
@@ -204,34 +283,70 @@ export default function AssessmentPage() {
                     points: "0-299",
                   },
                   {
-                    level: "bg",
+                    level: "BG-",
+                    name: "BG-",
+                    desc: "พอตีโดน เริ่มนับแต้มถูก",
+                    points: "300-399",
+                  },
+                  {
+                    level: "BG",
                     name: "BG",
                     desc: "เล่นได้ รู้กติกา",
-                    points: "300-599",
+                    points: "400-499",
                   },
                   {
-                    level: "normal",
+                    level: "BG+",
+                    name: "BG+",
+                    desc: "เล่นต่อเนื่องได้ ตบได้บ้าง",
+                    points: "500-599",
+                  },
+                  {
+                    level: "N-",
+                    name: "N-",
+                    desc: "วางลูกได้ เริ่มมีกลยุทธ์",
+                    points: "600-799",
+                  },
+                  {
+                    level: "N",
                     name: "N",
                     desc: "เล่นเป็น มีเทคนิค",
-                    points: "600-999",
+                    points: "800-999",
                   },
                   {
-                    level: "strong",
-                    name: "S",
-                    desc: "เล่นดี แข่งได้",
-                    points: "1000-1499",
+                    level: "N+",
+                    name: "N+",
+                    desc: "คุมเกมได้ เทคนิคแพรวพราว",
+                    points: "1000-1199",
                   },
                   {
-                    level: "pro",
+                    level: "P-",
+                    name: "P-",
+                    desc: "เริ่มแข่งขันระดับรายการ",
+                    points: "1200-1499",
+                  },
+                  {
+                    level: "P",
                     name: "P",
                     desc: "ระดับสูง แข่งประจำ",
-                    points: "1500-2499",
+                    points: "1500-1999",
                   },
                   {
-                    level: "champion",
-                    name: "C",
-                    desc: "ระดับแชมป์",
-                    points: "2500+",
+                    level: "P+",
+                    name: "P+",
+                    desc: "ระดับล่ารางวัล เก่งมาก",
+                    points: "2000-2499",
+                  },
+                  {
+                    level: "B",
+                    name: "B",
+                    desc: "กึ่งอาชีพ / นักกีฬา",
+                    points: "2500-2999",
+                  },
+                  {
+                    level: "A",
+                    name: "A",
+                    desc: "ระดับประเทศ / มืออาชีพ",
+                    points: "3000+",
                   },
                 ].map((item) => (
                   <div

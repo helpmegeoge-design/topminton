@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { BottomNav } from "@/components/bottom-nav";
 import { cn } from "@/lib/utils";
+import { useOnlineStatus } from "@/hooks/use-online-status";
 
 interface AppShellProps {
   children: ReactNode;
@@ -11,11 +12,14 @@ interface AppShellProps {
 }
 
 export function AppShell({ children, hideNav = false, className }: AppShellProps) {
+  // Update user's last_seen automatically
+  useOnlineStatus();
+
   return (
-    <div className="min-h-screen bg-background">
-      <main 
+    <div className="min-h-screen">
+      <main
         className={cn(
-          "pb-20 safe-area-bottom",
+          "safe-area-bottom pb-20", // Added padding-bottom to prevent content being hidden behind floating nav
           !hideNav && "min-h-screen",
           className
         )}

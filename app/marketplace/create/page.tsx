@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Icons } from "@/components/icons";
 import { GlassCard } from "@/components/ui/glass-card";
 import { cn } from "@/lib/utils";
+import { createClient } from "@/lib/supabase/client";
+import { toast } from "sonner";
+// import { v4 as uuidv4 } from 'uuid'; // Removed to use crypto.randomUUID()
 
 const categories = [
   { id: "racket", label: "ไม้แบดมินตัน", icon: "shuttlecock" },
@@ -24,6 +27,7 @@ const conditions = [
   { id: "likeNew", label: "เหมือนใหม่", description: "ใช้งาน 1-2 ครั้ง สภาพ 95%+" },
   { id: "good", label: "สภาพดี", description: "ใช้งานปกติ สภาพ 80-95%" },
   { id: "fair", label: "พอใช้", description: "มีร่องรอยการใช้งาน สภาพ 60-80%" },
+  { id: "used", label: "มือสอง", description: "สภาพใช้งานทั่วไป" },
 ];
 
 const brands = [
@@ -39,8 +43,10 @@ const brands = [
 
 export default function CreateListingPage() {
   const router = useRouter();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [step, setStep] = useState(1);
   const [images, setImages] = useState<string[]>([]);
+  const [uploading, setUploading] = useState(false);
   const [formData, setFormData] = useState({
     title: "",
     category: "",
@@ -53,10 +59,51 @@ export default function CreateListingPage() {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Trigger file input
   const handleImageAdd = () => {
-    // Mock adding image
-    if (images.length < 5) {
-      setImages([...images, `/images/marketplace/racket-1.jpg`]);
+    if (images.length >= 5) return;
+    fileInputRef.current?.click();
+  };
+
+  // Upload to Supabase Storage
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Reset input value so same file can be selected again if needed (though unlikely here)
+    e.target.value = "";
+
+    setUploading(true);
+    const supabase = createClient();
+    if (!supabase) {
+      setUploading(false);
+      return;
+    }
+
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${crypto.randomUUID()}.${fileExt}`;
+      const filePath = `${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('market-images')
+        .upload(filePath, file);
+
+      if (uploadError) {
+        throw uploadError;
+      }
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('market-images')
+        .getPublicUrl(filePath);
+
+      setImages([...images, publicUrl]);
+
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      toast.error("อัปโหลดรูปภาพล้มเหลว");
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -66,9 +113,44 @@ export default function CreateListingPage() {
 
   const handleSubmit = async () => {
     setIsSubmitting(true);
-    // Mock submit
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    router.push("/marketplace?success=1");
+    const supabase = createClient();
+    if (!supabase) return;
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast.error("กรุณาเข้าสู่ระบบก่อนลงขาย");
+        router.push("/auth/login");
+        return;
+      }
+
+      const { error } = await supabase
+        .from('market_products')
+        .insert({
+          user_id: user.id,
+          title: formData.title,
+          category: formData.category,
+          brand: formData.brand,
+          condition: formData.condition,
+          price: Number(formData.price),
+          original_price: formData.originalPrice ? Number(formData.originalPrice) : null,
+          description: formData.description,
+          location: formData.location,
+          images: images,
+          is_sold: false
+        });
+
+      if (error) throw error;
+
+      toast.success("ลงขายสินค้าสำเร็จ!");
+      router.push("/marketplace?success=1");
+
+    } catch (error) {
+      console.error("Error creating listing:", error);
+      toast.error("เกิดข้อผิดพลาดในการลงขาย");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const canProceedStep1 = images.length > 0 && formData.category && formData.condition;
@@ -76,6 +158,14 @@ export default function CreateListingPage() {
 
   return (
     <div className="min-h-screen bg-background pb-24">
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleFileChange}
+        className="hidden"
+        accept="image/*"
+      />
+
       {/* Header */}
       <header className="sticky top-0 z-50 glass-card border-b border-border safe-area-top">
         <div className="flex items-center justify-between px-4 h-14">
@@ -130,7 +220,7 @@ export default function CreateListingPage() {
                     className="relative aspect-square rounded-xl overflow-hidden bg-muted"
                   >
                     <img
-                      src={img || "/placeholder.svg"}
+                      src={img}
                       alt={`Product ${index + 1}`}
                       className="w-full h-full object-cover"
                     />
@@ -149,10 +239,15 @@ export default function CreateListingPage() {
                 ))}
                 {images.length < 5 && (
                   <button
+                    disabled={uploading}
                     onClick={handleImageAdd}
-                    className="aspect-square rounded-xl border-2 border-dashed border-border flex flex-col items-center justify-center gap-1 text-muted-foreground hover:border-primary hover:text-primary transition-colors"
+                    className="aspect-square rounded-xl border-2 border-dashed border-border flex flex-col items-center justify-center gap-1 text-muted-foreground hover:border-primary hover:text-primary transition-colors disabled:opacity-50"
                   >
-                    <Icons.camera className="w-6 h-6" />
+                    {uploading ? (
+                      <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <Icons.camera className="w-6 h-6" />
+                    )}
                     <span className="text-xs">{images.length}/5</span>
                   </button>
                 )}

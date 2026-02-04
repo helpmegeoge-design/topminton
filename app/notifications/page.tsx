@@ -8,6 +8,7 @@ import { AppShell } from "@/components/app-shell";
 import { GlassCard } from "@/components/ui/glass-card";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
+import { LoadingShuttlecock } from "@/components/ui/loading-shuttlecock";
 import { formatDistanceToNow } from "date-fns";
 import { th } from "date-fns/locale";
 
@@ -246,8 +247,8 @@ export default function NotificationsPage() {
         {/* Notifications List */}
         <div className="flex-1 p-4 space-y-2 pb-24">
           {isLoading ? (
-            <div className="flex justify-center py-16">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            <div className="flex justify-center py-12">
+              <LoadingShuttlecock />
             </div>
           ) : filteredNotifications.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16">

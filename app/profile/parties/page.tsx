@@ -10,8 +10,8 @@ import { Icons } from "@/components/icons";
 import { createClient } from "@/lib/supabase/client";
 import { format } from "date-fns";
 import { th } from "date-fns/locale";
-import Image from "next/image";
 import Link from "next/link";
+import { LoadingShuttlecock } from "@/components/ui/loading-shuttlecock";
 
 interface Party {
     id: string;
@@ -58,23 +58,25 @@ export default function MyPartiesPage() {
         const { data: hosted } = await supabase
             .from('parties')
             .select(`
-        *,
-        courts(name, location)
-      `)
+                *,
+                courts(name, location)
+            `)
             .eq('host_id', user.id)
             .order('date', { ascending: true });
 
         // Fetch parties I joined
+        // IMPORTANT: We want to see ALL parties we joined, excluding the ones we host (because they are in Hosting tab)
         const { data: joined } = await supabase
             .from('party_members')
             .select(`
-        party:parties(
-          *,
-          courts(name, location)
-        )
-      `)
+                party:parties!inner(
+                    *,
+                    courts(name, location)
+                )
+            `)
             .eq('user_id', user.id)
-            .neq('party.host_id', user.id);
+            .neq('party.host_id', user.id)
+            .order('created_at', { ascending: false });
 
         if (hosted) {
             const hostedParties = hosted.map((p: any) => ({
@@ -95,7 +97,10 @@ export default function MyPartiesPage() {
                     court_name: p.courts?.name || 'ไม่ระบุสนาม',
                     is_host: false,
                     member_count: p.current_players || 0
-                }));
+                }))
+                // Sort by party date locally
+                .sort((a: any, b: any) => new Date(`${a.date}T${a.start_time}`).getTime() - new Date(`${b.date}T${b.start_time}`).getTime());
+
             setJoinedParties(joinedParties);
         }
 
@@ -197,8 +202,8 @@ export default function MyPartiesPage() {
                         <button
                             onClick={() => setActiveTab('hosting')}
                             className={`flex-1 py-3 text-sm font-medium transition-colors ${activeTab === 'hosting'
-                                    ? 'text-primary border-b-2 border-primary'
-                                    : 'text-muted-foreground'
+                                ? 'text-primary border-b-2 border-primary'
+                                : 'text-muted-foreground'
                                 }`}
                         >
                             ก๊วนที่ฉันจัด ({myParties.length})
@@ -206,8 +211,8 @@ export default function MyPartiesPage() {
                         <button
                             onClick={() => setActiveTab('joined')}
                             className={`flex-1 py-3 text-sm font-medium transition-colors ${activeTab === 'joined'
-                                    ? 'text-primary border-b-2 border-primary'
-                                    : 'text-muted-foreground'
+                                ? 'text-primary border-b-2 border-primary'
+                                : 'text-muted-foreground'
                                 }`}
                         >
                             ที่เข้าร่วม ({joinedParties.length})
@@ -219,7 +224,7 @@ export default function MyPartiesPage() {
                 <main className="p-4 space-y-3">
                     {loading ? (
                         <div className="flex justify-center py-12">
-                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                            <LoadingShuttlecock />
                         </div>
                     ) : activeTab === 'hosting' ? (
                         myParties.length === 0 ? (

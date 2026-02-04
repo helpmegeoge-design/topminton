@@ -13,6 +13,8 @@ import { LevelBadge, type Level } from "@/components/ui/level-badge";
 import { Icons } from "@/components/icons";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
+import { LoadingShuttlecock } from "@/components/ui/loading-shuttlecock";
+import { ImageCropper } from "@/components/ui/image-cropper";
 
 const levels: Level[] = ["beginner", "intermediate", "advanced", "strong", "pro", "champion"];
 
@@ -29,6 +31,10 @@ export default function ProfileEditPage() {
   const [playFrequency, setPlayFrequency] = useState("");
   const [skillLevel, setSkillLevel] = useState<Level>("beginner");
   const [avatarUrl, setAvatarUrl] = useState("");
+
+  // Cropper State
+  const [cropperOpen, setCropperOpen] = useState(false);
+  const [selectedImageSrc, setSelectedImageSrc] = useState<string | null>(null);
 
   // User ID
   const [userId, setUserId] = useState<string | null>(null);
@@ -107,82 +113,86 @@ export default function ProfileEditPage() {
     }
   };
 
-  const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  // 1. Handle File Select (triggered by input)
+  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (!file || !userId) return;
+    if (!file) return;
 
-    // Check file type
     if (!file.type.startsWith('image/')) {
       alert('กรุณาเลือกไฟล์รูปภาพเท่านั้น');
       return;
     }
 
-    // Check file size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      alert('ไฟล์รูปภาพต้องมีขนาดไม่เกิน 5MB');
-      return;
-    }
+    // Read file as Data URL for cropper
+    const reader = new FileReader();
+    reader.addEventListener('load', () => {
+      setSelectedImageSrc(reader.result?.toString() || null);
+      setCropperOpen(true);
+    });
+    reader.readAsDataURL(file);
 
+    // Clear input so same file can be selected again
+    event.target.value = '';
+  };
+
+  // 2. Handle Cropped Image Upload (triggered by cropper save)
+  const uploadCroppedImage = async (imageBlob: Blob) => {
+    if (!userId) return;
     setSaving(true);
-    const supabase = createClient();
-    if (!supabase) {
-      alert('ไม่สามารถเชื่อมต่อได้');
-      setSaving(false);
-      return;
-    }
+    setCropperOpen(false); // Close modal
 
     try {
-      // Create unique filename
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${userId}-${Date.now()}.${fileExt}`;
+      const supabase = createClient();
+      if (!supabase) {
+        throw new Error('ไม่สามารถเชื่อมต่อได้');
+      }
+
+      const fileName = `${userId}-${Date.now()}.jpg`;
       const filePath = `${fileName}`;
 
-      // Upload to Supabase Storage
+      // Convert Blob to File
+      const file = new File([imageBlob], fileName, { type: 'image/jpeg' });
+
+      // Upload to Supabase
       const { error: uploadError } = await supabase.storage
         .from('avatars')
         .upload(filePath, file, {
           cacheControl: '3600',
-          upsert: false
+          upsert: true
         });
 
-      if (uploadError) {
-        console.error('Upload error:', uploadError);
-        alert('เกิดข้อผิดพลาดในการอัปโหลด: ' + uploadError.message);
-        setSaving(false);
-        return;
-      }
+      if (uploadError) throw uploadError;
 
-      // Get public URL
+      // Get Public URL
       const { data: { publicUrl } } = supabase.storage
         .from('avatars')
         .getPublicUrl(filePath);
 
-      // Update profile with new avatar URL
+      // Update Profile
       const { error: updateError } = await supabase
         .from('profiles')
         .update({ avatar_url: publicUrl })
         .eq('id', userId);
 
-      if (updateError) {
-        console.error('Update error:', updateError);
-        alert('เกิดข้อผิดพลาดในการบันทึก: ' + updateError.message);
-      } else {
-        setAvatarUrl(publicUrl);
-        alert('อัปโหลดรูปโปรไฟล์สำเร็จ');
-      }
-    } catch (error) {
-      console.error('Avatar upload error:', error);
-      alert('เกิดข้อผิดพลาด');
-    }
+      if (updateError) throw updateError;
 
-    setSaving(false);
+      setAvatarUrl(publicUrl);
+      alert('อัปโหลดรูปโปรไฟล์สำเร็จ');
+
+    } catch (error: any) {
+      console.error('Avatar upload error:', error);
+      alert('เกิดข้อผิดพลาด: ' + (error.message || 'Unknown error'));
+    } finally {
+      setSaving(false);
+      setSelectedImageSrc(null);
+    }
   };
 
   if (loading) {
     return (
       <AppShell hideNav>
         <div className="flex items-center justify-center min-h-screen">
-          <p className="text-muted-foreground">กำลังโหลดข้อมูล...</p>
+          <LoadingShuttlecock />
         </div>
       </AppShell>
     );
@@ -207,7 +217,12 @@ export default function ProfileEditPage() {
         {/* Avatar */}
         <div className="flex justify-center">
           <div className="relative">
-            <div className="w-28 h-28 rounded-full overflow-hidden ring-4 ring-primary/20 bg-muted">
+            <div className="w-28 h-28 rounded-full overflow-hidden ring-4 ring-primary/20 bg-muted relative">
+              {saving && document.activeElement?.id === 'avatar-upload' ? (
+                <div className="absolute inset-0 bg-black/50 z-10 flex items-center justify-center">
+                  <div className="animate-spin w-8 h-8 border-2 border-white border-t-transparent rounded-full" />
+                </div>
+              ) : null}
               {avatarUrl ? (
                 <Image
                   src={avatarUrl}
@@ -215,6 +230,7 @@ export default function ProfileEditPage() {
                   width={112}
                   height={112}
                   className="object-cover w-full h-full"
+                  unoptimized
                 />
               ) : (
                 <div className="w-full h-full flex items-center justify-center">
@@ -222,17 +238,19 @@ export default function ProfileEditPage() {
                 </div>
               )}
             </div>
+
             <input
               type="file"
               id="avatar-upload"
               accept="image/*"
-              onChange={handleAvatarUpload}
+              onChange={handleFileSelect}
               className="hidden"
               disabled={saving}
             />
+
             <label
               htmlFor="avatar-upload"
-              className="absolute bottom-0 right-0 w-9 h-9 rounded-full bg-primary text-white flex items-center justify-center shadow-lg cursor-pointer hover:bg-primary/90 transition-colors"
+              className="absolute bottom-0 right-0 w-9 h-9 rounded-full bg-primary text-white flex items-center justify-center shadow-lg cursor-pointer hover:bg-primary/90 transition-colors z-20"
             >
               <Icons.camera className="w-5 h-5" />
             </label>
@@ -350,6 +368,14 @@ export default function ProfileEditPage() {
           </div>
         </div>
       </div>
+
+      {/* Image Cropper Modal */}
+      <ImageCropper
+        open={cropperOpen}
+        onClose={() => setCropperOpen(false)}
+        imageSrc={selectedImageSrc}
+        onCropComplete={uploadCroppedImage}
+      />
     </AppShell>
   );
 }

@@ -1445,6 +1445,31 @@ export function CheckCircleIcon({ className, size = 24 }: IconProps) {
   );
 }
 
+// Money/Cash Icon (Banknote & Coin)
+export function MoneyIcon({ className, size = 24 }: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      className={cn("text-current", className)}
+    >
+      {/* Banknote */}
+      <rect x="2" y="6" width="16" height="10" rx="2" stroke="currentColor" strokeWidth="1.5" />
+      <circle cx="10" cy="11" r="2" stroke="currentColor" strokeWidth="1.5" />
+      <path d="M18 11V11.01" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+
+      {/* Coin overlapping */}
+      <circle cx="17" cy="16" r="4" fill="currentColor" className="text-background" /> {/* Mask bg */}
+      <circle cx="17" cy="16" r="4" stroke="currentColor" strokeWidth="1.5" />
+      <path d="M17 14.5V17.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <path d="M15.5 15H18.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <path d="M15.5 17H18.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 // Coins Icon
 export function CoinsIcon({ className, size = 24 }: IconProps) {
   return (
@@ -1482,6 +1507,41 @@ export function BagIcon({ className, size = 24 }: IconProps) {
 }
 
 // Consolidated Icons Export - All icons used in the app
+// Receipt Icon
+export function ReceiptIcon({ className, size = 24 }: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      className={cn("text-current", className)}
+    >
+      <path
+        d="M4 2V22L8 20L12 22L16 20L20 22V2L16 4L12 2L8 4L4 2Z"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M9 10H15"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M9 14H15"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 export const Icons = {
   // Navigation
   home: HomeIcon,
@@ -1510,7 +1570,7 @@ export const Icons = {
   close: CloseIcon,
   more: MoreIcon,
   navigate: NavigateIcon,
-  
+
   // Core features
   court: CourtIcon,
   mapPin: CourtIcon,
@@ -1519,14 +1579,14 @@ export const Icons = {
   trophy: TrophyIcon,
   scoreboard: ScoreboardIcon,
   ranking: RankingIcon,
-  
+
   // User & profile
   profile: ProfileIcon,
   users: UsersIcon,
   bell: BellIcon,
   settings: SettingsIcon,
   logout: LogoutIcon,
-  
+
   // Actions
   plus: PlusIcon,
   minus: function MinusIcon({ className, size = 24 }: IconProps) {
@@ -1548,7 +1608,7 @@ export const Icons = {
   undo: UndoIcon,
   maximize: MaximizeIcon,
   camera: CameraIcon,
-  
+
   // Status & feedback
   check: CheckIcon,
   star: StarIcon,
@@ -1558,7 +1618,7 @@ export const Icons = {
   eye: EyeIcon,
   clock: ClockIcon,
   calendar: CalendarIcon,
-  
+
   // Content
   blog: BlogIcon,
   post: PostIcon,
@@ -1567,21 +1627,24 @@ export const Icons = {
   document: DocumentIcon,
   qrCode: QRCodeIcon,
   bookmark: BookmarkIcon,
-  
+
   // Commerce
   coins: CoinsIcon,
   bag: BagIcon,
   phone: PhoneIcon,
   crown: CrownIcon,
   shield: ShieldIcon,
-  
+  receipt: ReceiptIcon,
+  money: MoneyIcon,
+
   // Tools
+  store: BagIcon, // Alias store to BagIcon or create new
   dice: DiceIcon,
   broadcast: BroadcastIcon,
   monitor: MonitorIcon,
   gamepad: GamepadIcon,
   lightbulb: LightbulbIcon,
-  
+
   // Aliases for compatibility
   eyeOff: EyeIcon,
   download: RefreshIcon,
@@ -1594,6 +1657,7 @@ export const Icons = {
   loader: RefreshIcon,
   verified: CheckIcon,
   swords: TrophyIcon,
+  play: PlayIcon,
 };
 
 // Additional named exports for compatibility
@@ -1625,6 +1689,14 @@ export function ChevronUpIcon({ className, size = 24 }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={cn("text-current", className)}>
       <path d="M18 15L12 9L6 15" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+export function PlayIcon({ className, size = 24 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={cn("text-current", className)}>
+      <path d="M8 5V19L19 12L8 5Z" />
     </svg>
   );
 }

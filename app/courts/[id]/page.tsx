@@ -16,6 +16,7 @@ import {
 import { cn } from "@/lib/utils";
 import { LevelBadge } from "@/components/ui/level-badge";
 import { createClient } from "@/lib/supabase/client";
+import { OnlineUsers } from "@/components/online-users";
 
 // Mock Fallback court data
 const mockCourtFallback = {
@@ -50,13 +51,6 @@ const mockCourtFallback = {
   partyCount: 3,
 };
 
-const mockVisitors = [
-  { id: "1", name: "Player 1", level: "bg" as const },
-  { id: "2", name: "Player 2", level: "normal" as const },
-  { id: "3", name: "Player 3", level: "strong" as const },
-  { id: "4", name: "Player 4", level: "beginner" as const },
-  { id: "5", name: "Player 5", level: "pro" as const },
-];
 
 export default function CourtDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -170,12 +164,23 @@ export default function CourtDetailPage({ params }: { params: Promise<{ id: stri
             >
               <ArrowLeftIcon size={20} className="text-white" />
             </Link>
-            <button
-              type="button"
-              className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center tap-highlight"
-            >
-              <ShareIcon size={20} className="text-white" />
-            </button>
+            <div className="flex items-center gap-2">
+              <Link
+                href={`/courts/${court.id}/edit`}
+                className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center tap-highlight"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                </svg>
+              </Link>
+              <button
+                type="button"
+                className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center tap-highlight"
+              >
+                <ShareIcon size={20} className="text-white" />
+              </button>
+            </div>
           </div>
         </div>
 
@@ -318,23 +323,8 @@ export default function CourtDetailPage({ params }: { params: Promise<{ id: stri
           </div>
         </div>
 
-        {/* Visitors */}
-        <div>
-          <h2 className="font-semibold text-foreground mb-3">นักแบดที่เคยมาเยือน</h2>
-          <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-2">
-            {mockVisitors.map((visitor) => (
-              <div
-                key={visitor.id}
-                className="flex flex-col items-center gap-1 min-w-[64px]"
-              >
-                <div className="w-12 h-12 rounded-full bg-muted overflow-hidden ring-2 ring-border">
-                  <div className="w-full h-full bg-gradient-to-br from-primary/20 to-primary/40" />
-                </div>
-                <LevelBadge level={visitor.level} size="sm" />
-              </div>
-            ))}
-          </div>
-        </div>
+        {/* Online Users */}
+        <OnlineUsers />
 
         {/* Reviews */}
         <div>

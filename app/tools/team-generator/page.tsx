@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
 import { GlassCard } from "@/components/ui/glass-card";
@@ -16,6 +17,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { cn } from "@/lib/utils";
 
 export default function TeamGeneratorPage() {
   const router = useRouter();
@@ -27,19 +29,51 @@ export default function TeamGeneratorPage() {
   const [strictMode, setStrictMode] = useState(false);
   const [showTip, setShowTip] = useState(false);
 
-  const parsePlayerNames = (input: string) => {
-    const lines = input.split("\n");
-    const names: string[] = [];
+  // New State for Rotation Mode
+  // true = Winner Stays (ออกทีละคู่), false = Full Rotation (ออก 4 คน)
+  const [winnerStaysMode, setWinnerStaysMode] = useState(true);
 
-    for (const line of lines) {
-      // Remove numbering like "1.", "2.", etc.
-      const cleaned = line.replace(/^\d+[\.\)\-\s]+/, "").trim();
-      if (cleaned) {
-        names.push(cleaned);
+  const parsePlayerNames = (input: string) => {
+    const lines = input.split("\n").map(l => l.trim()).filter(l => l);
+    const newPlayers: string[] = [];
+
+    // Strict Numbered Mode Detection
+    // Matches "1.", "1)", "1-", "1 " followed by name
+    const strictPattern = /^(\d+)[\.\)\-\s]+\s*(.*)/;
+    const numberedLines = lines.filter(l => strictPattern.test(l));
+    const useStrictMode = numberedLines.length > 0;
+
+    const addPlayer = (name: string) => {
+      // Avoid duplicates in the same batch
+      const cleanedName = name.trim();
+      if (cleanedName && !newPlayers.includes(cleanedName)) {
+        newPlayers.push(cleanedName);
+      }
+    };
+
+    if (useStrictMode) {
+      for (const line of lines) {
+        const match = line.match(strictPattern);
+        if (match) {
+          // match[2] is the name part after the number
+          const name = match[2].trim();
+          if (name && name.length > 0) addPlayer(name);
+        }
+      }
+    } else {
+      const excludePatterns = [
+        /^[🧡📍🏸❌]/, /[🧡📍🏸❌]$/, /^https?:\/\//,
+        /^(ปิด|คอร์ท|สนาม|เวลา|วันที่|ลงชื่อ|@)/,
+        /(กติก|พรุ่งนี้|วันนี้|พบกัน|นัด|คอนเท้น|แรง|จบบ่แฮง)/,
+      ];
+      for (const line of lines) {
+        const isHeaderFooter = excludePatterns.some(pattern => pattern.test(line));
+        // Basic length check to avoid long sentences/paragraphs
+        if (!isHeaderFooter && line.length < 50) addPlayer(line);
       }
     }
 
-    setPlayers(names);
+    setPlayers(newPlayers);
   };
 
   const handleInputChange = (value: string) => {
@@ -60,6 +94,7 @@ export default function TeamGeneratorPage() {
       rounds,
       restRounds,
       strictMode,
+      winnerStaysMode, // Pass the mode to the result page
     };
     sessionStorage.setItem("teamGeneratorSettings", JSON.stringify(settings));
     router.push("/tools/team-generator/result");
@@ -71,14 +106,18 @@ export default function TeamGeneratorPage() {
         {/* Header */}
         <div className="sticky top-0 z-20 bg-background/80 backdrop-blur-xl border-b border-border">
           <div className="px-4 py-3 flex items-center gap-3">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => router.back()}
-              className="rounded-full"
-            >
-              <Icons.chevronLeft className="h-5 w-5" />
-            </Button>
+            <Link href="/">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="rounded-full"
+                asChild
+              >
+                <span>
+                  <Icons.chevronLeft className="h-5 w-5" />
+                </span>
+              </Button>
+            </Link>
             <h1 className="text-lg font-semibold text-foreground">
               ระบบสุ่มจับคู่
             </h1>
@@ -109,27 +148,27 @@ export default function TeamGeneratorPage() {
               </div>
             </div>
             <p className="text-sm text-muted-foreground mb-3">
-              ใส่รายชื่อผู้เล่นคนละบรรทัด (ต้องมีอย่างน้อย 4 คน)
+              วางรายชื่อก๊วนลงที่นี่ ระบบจะดึงชื่อให้อัตโนมัติ
             </p>
             <Textarea
-              placeholder={`กรอกรายชื่อผู้เล่นที่ต้องการ เช่น:\nแสตมป์\nแชมป์\nเต้\nพี่วี\nพี่กัน`}
+              placeholder={`วางข้อความรายชื่อจาก LINE ได้เลย ระบบจะตัดส่วนที่ไม่ใช่ออกให้ครับ...`}
               value={playerInput}
               onChange={(e) => handleInputChange(e.target.value)}
               rows={8}
-              className="bg-secondary border-0 resize-none"
+              className="bg-secondary border-0 resize-none font-medium"
             />
 
             {players.length > 0 && (
               <div className="mt-3">
-                <p className="text-sm text-[#FF9500] mb-2">
-                  ตรวจพบผู้เล่น ({players.length} คน)
+                <p className="text-sm text-[#FF9500] font-bold mb-2 uppercase tracking-tight">
+                  PLAYER LIST ({players.length})
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {players.map((player, index) => (
                     <Badge
                       key={index}
                       variant="secondary"
-                      className="pr-1 flex items-center gap-1"
+                      className="pr-1 flex items-center gap-1 bg-muted/50 border-none"
                     >
                       {player}
                       <button
@@ -143,100 +182,104 @@ export default function TeamGeneratorPage() {
                 </div>
               </div>
             )}
+          </GlassCard>
 
-            <Button
-              variant="outline"
-              className="w-full mt-4 rounded-xl border-[#FF9500] text-[#FF9500] bg-transparent"
-              onClick={() => setShowTip(true)}
-            >
-              <Icons.lightbulb className="h-4 w-4 mr-2" />
-              ตัวอย่างข้อมูล
-            </Button>
+          {/* Mode Selection */}
+          <GlassCard className="p-4">
+            <h3 className="font-bold text-foreground mb-4 flex items-center gap-2">
+              <Icons.shuffle className="w-4 h-4 text-primary" />
+              รูปแบบการรันคิว
+            </h3>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={() => setWinnerStaysMode(true)}
+                className={cn(
+                  "flex flex-col items-center justify-center p-4 rounded-2xl border-2 transition-all gap-2",
+                  winnerStaysMode ? "border-[#FF9500] bg-[#FF9500]/5" : "border-border bg-transparent opacity-60"
+                )}
+              >
+                <Icons.star className={cn("w-6 h-6", winnerStaysMode ? "text-[#FF9500]" : "text-muted-foreground")} />
+                <div className="text-center">
+                  <p className="text-sm font-black leading-tight">ชนะวนต่อ</p>
+                  <p className="text-[10px] text-muted-foreground font-medium">ออกทีละคู่</p>
+                </div>
+              </button>
+              <button
+                onClick={() => setWinnerStaysMode(false)}
+                className={cn(
+                  "flex flex-col items-center justify-center p-4 rounded-2xl border-2 transition-all gap-2",
+                  !winnerStaysMode ? "border-[#FF9500] bg-[#FF9500]/5" : "border-border bg-transparent opacity-60"
+                )}
+              >
+                <Icons.users className={cn("w-6 h-6", !winnerStaysMode ? "text-[#FF9500]" : "text-muted-foreground")} />
+                <div className="text-center">
+                  <p className="text-sm font-black leading-tight">ออกแบบคู่</p>
+                  <p className="text-[10px] text-muted-foreground font-medium">ออก 4 คนยกสนาม</p>
+                </div>
+              </button>
+            </div>
+
+            <div className="mt-4 p-3 rounded-xl bg-muted/30 border border-dashed border-border">
+              <p className="text-[11px] text-muted-foreground leading-relaxed">
+                {winnerStaysMode
+                  ? "• รอบแรกคัดผู้ชนะอยู่ต่อ พอก้าวเข้าสู่เกมที่ 2 จะต้องสลับคิวออกเพื่อให้คู่ใหม่ได้เล่น (จำกัดคู่ละ 2 เกมต่อเนื่อง)"
+                  : "• เมื่อจบแมตช์ ทั้ง 4 คนในสนามต้องออกจากสนามทั้งหมด และนำคู่ใหม่ 2 คู่จากคิวเข้าไปเล่นแทน"}
+              </p>
+            </div>
           </GlassCard>
 
           {/* Settings */}
           <GlassCard className="p-4">
-            <h3 className="font-medium text-foreground mb-4">การตั้งค่า</h3>
+            <h3 className="font-medium text-foreground mb-4">การตั้งค่าทั่วไป</h3>
 
             {/* Courts */}
             <div className="mb-6">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-foreground">จำนวนคอร์ท</span>
-                <Badge className="bg-[#FF9500] text-white">{courts}</Badge>
+                <span className="text-foreground font-bold">จำนวนคอร์ท</span>
+                <Badge className="bg-[#FF9500] text-white font-black">{courts}</Badge>
               </div>
-              <p className="text-sm text-muted-foreground mb-3">
-                จำนวนสนามแบดมินตันที่จะใช้ในการแข่งขันแต่ละรอบ
-                ยิ่งมีคอร์ทเยอะ ยิ่งมีผู้เล่นได้เล่นพร้อมกันมากขึ้น
-              </p>
               <Slider
                 value={[courts]}
                 onValueChange={(v) => setCourts(v[0])}
                 min={1}
-                max={4}
+                max={10}
                 step={1}
                 className="[&_[role=slider]]:bg-[#FF9500]"
               />
-              <div className="flex justify-between text-xs text-muted-foreground mt-1">
-                <span>1</span>
-                <span>4</span>
+              <div className="flex justify-between text-[10px] font-bold text-muted-foreground mt-2 uppercase tracking-widest">
+                <span>1 Court</span>
+                <span>10 Courts</span>
               </div>
             </div>
 
-            {/* Rounds */}
-            <div className="mb-6">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-foreground">จำนวนรอบ</span>
-                <Badge className="bg-[#FF9500] text-white">{rounds}</Badge>
+            {/* Rounds - Hidden for Winner Stays mode as it's infinite queue */}
+            {winnerStaysMode ? null : (
+              <div className="mb-6">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-foreground">จำนวนรอบ</span>
+                  <Badge className="bg-[#FF9500] text-white">{rounds}</Badge>
+                </div>
+                <Slider
+                  value={[rounds]}
+                  onValueChange={(v) => setRounds(v[0])}
+                  min={1}
+                  max={20}
+                  step={1}
+                  className="[&_[role=slider]]:bg-[#FF9500]"
+                />
+                <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                  <span>1</span>
+                  <span>20</span>
+                </div>
               </div>
-              <p className="text-sm text-muted-foreground mb-3">
-                จำนวนรอบการแข่งขันทั้งหมด 1 รอบ = การเล่น 1 เกมส์ในแต่ละคอร์ท
-              </p>
-              <Slider
-                value={[rounds]}
-                onValueChange={(v) => setRounds(v[0])}
-                min={1}
-                max={20}
-                step={1}
-                className="[&_[role=slider]]:bg-[#FF9500]"
-              />
-              <div className="flex justify-between text-xs text-muted-foreground mt-1">
-                <span>1</span>
-                <span>20</span>
-              </div>
-            </div>
-
-            {/* Rest Rounds */}
-            <div className="mb-6">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-foreground">รอบพัก</span>
-                <Badge className="bg-[#FF9500] text-white">{restRounds}</Badge>
-              </div>
-              <p className="text-sm text-muted-foreground mb-3">
-                จำนวนรอบที่ผู้เล่นต้องพักก่อนจะได้เล่นอีกครั้ง
-                ป้องกันการเล่นติดต่อกันหลายรอบ เพื่อความยุติธรรม
-              </p>
-              <Slider
-                value={[restRounds]}
-                onValueChange={(v) => setRestRounds(v[0])}
-                min={0}
-                max={2}
-                step={1}
-                className="[&_[role=slider]]:bg-[#FF9500]"
-              />
-              <div className="flex justify-between text-xs text-muted-foreground mt-1">
-                <span>0</span>
-                <span>2</span>
-              </div>
-            </div>
+            )}
 
             {/* Strict Mode */}
             <div className="flex items-center justify-between">
               <div>
-                <span className="text-foreground">โหมดเข้มงวด</span>
-                <p className="text-sm text-muted-foreground mt-1">
-                  ปิด: อนุญาตให้มีคอร์ทว่างได้ เหมาะสำหรับผู้เล่นไม่เยอะ
-                  <br />
-                  เปิด: ต้องมีผู้เล่นครบทุกคอร์ทในทุกรอบ
+                <span className="text-foreground font-bold text-sm">โหมดเติมคนอัตโนมัติ</span>
+                <p className="text-[10px] text-muted-foreground mt-1 font-medium italic">
+                  จัดคนให้เต็มทุกคอร์ทโดยการสุ่มจากคนที่พักอยู่
                 </p>
               </div>
               <Switch checked={strictMode} onCheckedChange={setStrictMode} />
@@ -249,50 +292,45 @@ export default function TeamGeneratorPage() {
           <Button
             onClick={handleGenerate}
             disabled={players.length < 4}
-            className="w-full bg-[#FF9500] hover:bg-[#FF9500]/90 text-white rounded-2xl py-6 text-lg"
+            className="w-full bg-[#FF9500] hover:bg-[#FF9500]/90 text-white rounded-2xl h-14 text-lg font-black shadow-lg shadow-[#FF9500]/20"
           >
-            <Icons.shuffle className="h-5 w-5 mr-2" />
-            สร้างตารางการแข่งขัน
+            <Icons.shuffle className="h-5 w-5 mr-3" />
+            เริ่มต้นจัดคิว {winnerStaysMode ? "แบบคัดคนออก" : "แบบออก 4 คน"}
           </Button>
         </div>
 
         {/* Tip Modal */}
         <Dialog open={showTip} onOpenChange={setShowTip}>
-          <DialogContent className="rounded-3xl">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Icons.lightbulb className="h-5 w-5 text-[#F7B928]" />
-                เทคนิคการใส่รายชื่อ
+          <DialogContent className="rounded-3xl border-none p-0 overflow-hidden">
+            <div className="bg-[#FF9500] p-6 text-white">
+              <DialogTitle className="flex items-center gap-3 text-xl font-black italic uppercase">
+                <Icons.lightbulb className="h-6 w-6" />
+                TIPS & TRICKS
               </DialogTitle>
-            </DialogHeader>
-            <div className="py-4">
-              <div className="bg-secondary rounded-2xl p-4 mb-4">
-                <p className="text-sm text-[#FF9500] mb-2">
-                  คุณสามารถวางข้อความลงชื่อจากแอปอื่น
-                  เพื่อให้ระบบคำนวณชื่อโดยอัตโนมัติ
+            </div>
+            <div className="p-6 space-y-4">
+              <div className="bg-secondary rounded-2xl p-5 shadow-inner">
+                <p className="text-xs font-bold text-[#FF9500] mb-3 uppercase tracking-tighter">
+                  ตัวอย่างการลงชื่อที่ระบบรองรับ:
                 </p>
-                <div className="bg-background rounded-xl p-3 text-sm">
-                  <p className="text-muted-foreground">@All ลงชื่อ ตีแบต ครับ</p>
-                  <p>1.แสตมป์</p>
-                  <p>2.นัท</p>
-                  <p>3.มาเบล</p>
-                  <p>4.กิม</p>
-                  <p>5.สมิท</p>
-                  <p className="text-muted-foreground">...</p>
+                <div className="bg-background/80 rounded-xl p-4 text-xs font-medium space-y-1.5 border border-border/50">
+                  <p className="text-muted-foreground italic mb-1">// ก๊อปจาก LINE ได้เลย</p>
+                  <p>1. แสตมป์</p>
+                  <p>2. พี่นัท (หน้าเดิม)</p>
+                  <p>3. กิมจิเองจ้า</p>
+                  <p>4. Teเต้</p>
                 </div>
               </div>
-              <p className="text-sm text-muted-foreground">
-                คุณสามารถคัดลอกรายชื่อจากที่อื่น เช่น Line, Instagram, หรือ
-                Facebook แล้ววางที่ช่องข้อความได้เลย
-                ระบบจะพยายามแยกแยะรายชื่อออกมาให้
+              <p className="text-xs text-muted-foreground font-medium leading-relaxed">
+                ระบบถูกออกแบบมาให้ฉลาดพอที่จะแยกแยะรายชื่อแม้จะมีเลขลำดับ หรือข้อความอื่นปนมา คุณแค่คัดลอกรายชื่อทั้งหมดแล้ววางลงในช่องได้ทันทีครับ
               </p>
+              <Button
+                className="w-full bg-[#FF9500] hover:bg-[#FF9500]/90 text-white rounded-2xl h-12 font-bold"
+                onClick={() => setShowTip(false)}
+              >
+                เข้าใจแล้ว
+              </Button>
             </div>
-            <Button
-              className="w-full bg-[#FF9500] hover:bg-[#FF9500]/90 text-white rounded-2xl"
-              onClick={() => setShowTip(false)}
-            >
-              เข้าใจแล้ว
-            </Button>
           </DialogContent>
         </Dialog>
       </div>

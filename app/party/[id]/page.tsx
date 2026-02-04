@@ -8,6 +8,7 @@ import { AppShell } from "@/components/app-shell";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { LoadingShuttlecock } from "@/components/ui/loading-shuttlecock";
 import { LevelBadge } from "@/components/ui/level-badge";
 import { Icons } from "@/components/icons";
 import { cn } from "@/lib/utils";
@@ -25,10 +26,11 @@ export default function PartyDetailPage() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [isJoining, setIsJoining] = useState(false);
+  const [unreadChatCount, setUnreadChatCount] = useState(0);
 
   useEffect(() => {
     const fetchData = async () => {
-      console.log("Fetching party with ID:", id);
+      // Log Removed
       const supabase = createClient();
       if (!supabase) return;
 
@@ -42,7 +44,7 @@ export default function PartyDetailPage() {
         .select(`
           *,
           court:courts(*),
-          host:profiles(*)
+          host:profiles!parties_host_id_fkey(*)
         `)
         .eq('id', id)
         .single();
@@ -103,6 +105,52 @@ export default function PartyDetailPage() {
         ...partyData,
         members: membersWithProfiles || []
       });
+
+      // Fetch unread chat count
+      if (user?.id) {
+        const { data: unreadData } = await supabase
+          .rpc('get_party_unread_count', {
+            p_party_id: id,
+            p_user_id: user.id
+          });
+
+        if (unreadData !== null) {
+          setUnreadChatCount(unreadData);
+        }
+
+        // Subscribe to party chat changes for live unread count
+        const chatChannel = supabase
+          .channel(`party_chats_unread:${id}`)
+          .on(
+            'postgres_changes',
+            {
+              event: '*',
+              schema: 'public',
+              table: 'party_chats',
+              filter: `party_id=eq.${id}`
+            },
+            async (payload: any) => {
+              // Log Removed
+
+              const newMsg = payload.new;
+
+              // If it's a new message from SOMEONE ELSE -> Increment count locally (Optimistic Update)
+              if (payload.eventType === 'INSERT' && newMsg && newMsg.user_id !== user.id) {
+                setUnreadChatCount(prev => prev + 1);
+              }
+              // Otherwise (e.g. initial load or weird state), fetch accurate count
+              else {
+                const { data } = await supabase.rpc('get_party_unread_count', {
+                  p_party_id: id,
+                  p_user_id: user.id
+                });
+                if (data !== null) setUnreadChatCount(data);
+              }
+            }
+          )
+          .subscribe();
+      }
+
       setIsLoading(false);
     };
 
@@ -117,6 +165,11 @@ export default function PartyDetailPage() {
 
     setIsJoining(true);
     const supabase = createClient();
+    if (!supabase) {
+      alert("ไม่สามารถเชื่อมต่อได้");
+      setIsJoining(false);
+      return;
+    }
 
     // Check if already joined based on ID
     const isJoined = party.members.some((m: any) => m.user_id === currentUser.id);
@@ -209,7 +262,9 @@ export default function PartyDetailPage() {
     return (
       <AppShell hideNav>
         <div className="flex items-center justify-center min-h-screen">
-          <p className="text-muted-foreground">กำลังโหลดข้อมูล...</p>
+          <div className="py-12 flex justify-center">
+            <LoadingShuttlecock />
+          </div>
         </div>
       </AppShell>
     );
@@ -259,47 +314,6 @@ export default function PartyDetailPage() {
     ? ["beginner", "bg", "normal", "strong"]
     : [party.skill_level];
 
-  const handleKick = async (userId: string) => {
-    if (!confirm("คุณต้องการลบสมาชิกคนนี้ใช่หรือไม่?")) return;
-
-    const supabase = createClient();
-    if (!supabase) return;
-
-    // Direct delete fallback
-    const { error: delError } = await supabase.from('party_members').delete().eq('party_id', id).eq('user_id', userId);
-
-    if (delError) {
-      console.error("Delete failed:", delError);
-      alert("ลบไม่สำเร็จ: " + delError.message + " (ตรวจสอบสิทธิ์การลบ)");
-      // Revert state if needed or just reload
-      window.location.reload();
-      return;
-    }
-
-    // Update Party Count & Notify
-    const { data: latestParty } = await supabase.from('parties').select('current_players, title').eq('id', id).single();
-    if (latestParty) {
-      const newCount = Math.max(0, latestParty.current_players - 1);
-      await supabase.from('parties').update({ current_players: newCount }).eq('id', id);
-
-      // Send Notification to the kicked user
-      await supabase.from('notifications').insert({
-        user_id: userId,
-        type: 'system',
-        title: 'ระบบแจ้งเตือน',
-        message: `คุณถูกลบออกจากก๊วน "${latestParty.title || 'ไม่ระบุชื่อ'}"`,
-        is_read: false,
-        created_at: new Date().toISOString()
-      });
-    }
-
-    // Update Local State (Use user_id for safety)
-    setParty((prev: any) => ({
-      ...prev,
-      members: prev.members.filter((m: any) => m.user_id !== userId),
-      current_players: Math.max(0, prev.current_players - 1)
-    }));
-  };
 
   const handleCancelParty = async () => {
     if (!currentUser || currentUser.id !== party.host_id) {
@@ -471,6 +485,26 @@ export default function PartyDetailPage() {
             </div>
           </GlassCard>
 
+          {/* Match Results Quick Link */}
+          <GlassCard className="p-4 bg-primary/5 border-primary/20">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                  <Icons.trophy className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                  <p className="font-semibold">ผลการจับคู่แข่งขัน</p>
+                  <p className="text-xs text-muted-foreground">ดูคะแนนและอันดับผู้เล่นวันนี้</p>
+                </div>
+              </div>
+              <Button variant="ghost" size="sm" className="text-primary hover:bg-primary/10" asChild>
+                <Link href={`/party/${id}/results`}>
+                  ดูผล <Icons.chevronRight className="w-4 h-4 ml-1" />
+                </Link>
+              </Button>
+            </div>
+          </GlassCard>
+
           {/* Participants */}
           <GlassCard className="p-4">
             <div className="flex items-center justify-between mb-4">
@@ -524,16 +558,6 @@ export default function PartyDetailPage() {
                       </button>
                     )}
 
-                    {/* Host Kick Button */}
-                    {currentUser?.id === party.host_id && member.user.id !== party.host_id && (
-                      <button
-                        onClick={() => handleKick(member.user.id)}
-                        className="p-1.5 text-destructive rounded-full hover:bg-destructive/10 shrink-0"
-                      >
-                        <Icons.trash size={16} />
-                      </button>
-                    )}
-
                     {/* Level Badge - Far Right */}
                     {member.user.skill_level && (
                       <div className="shrink-0">
@@ -554,9 +578,21 @@ export default function PartyDetailPage() {
       </div>
 
       {/* Bottom Action Bar */}
-      <div className="fixed bottom-0 left-0 right-0 p-4 bg-background/80 backdrop-blur-xl border-t border-border safe-area-bottom">
+      <div className="sticky bottom-0 left-0 right-0 p-4 bg-background/80 backdrop-blur-xl border-t border-border safe-area-bottom z-50">
         <div className="flex gap-3">
-          <Button variant="outline" size="lg" className="flex-1 bg-transparent" asChild>
+          <Button variant="outline" size="lg" className="bg-transparent relative" asChild>
+            <Link href={`/party/${party.id}/chat`}>
+              <Icons.message className="w-5 h-5 mr-2" />
+              แชทกลุ่ม
+              {unreadChatCount > 0 && (
+                <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
+                  {unreadChatCount > 9 ? '9+' : unreadChatCount}
+                </span>
+              )}
+            </Link>
+          </Button>
+
+          <Button variant="outline" size="lg" className="bg-transparent" asChild>
             <Link href={`/party/${party.id}/bill`}>
               <Icons.coins className="w-5 h-5 mr-2" />
               คิดเงิน
@@ -564,28 +600,16 @@ export default function PartyDetailPage() {
           </Button>
 
           {currentUser?.id === party.host_id ? (
-            <>
-              <Button
-                size="lg"
-                variant="destructive"
-                className="flex-1"
-                onClick={handleCancelParty}
-                disabled={isJoining}
-              >
-                <Icons.trash className="w-5 h-5 mr-2" />
-                {isJoining ? "กำลังยกเลิก..." : "ยกเลิกก๊วน"}
-              </Button>
-              <Button
-                size="lg"
-                className="flex-1 bg-secondary text-secondary-foreground hover:bg-secondary/90"
-                asChild
-              >
-                <Link href={`/party/${party.id}/manage`}>
-                  <Icons.settings className="w-5 h-5 mr-2" />
-                  ดูการจัดการ
-                </Link>
-              </Button>
-            </>
+            <Button
+              size="lg"
+              className="flex-1 bg-primary text-white hover:bg-primary/90"
+              asChild
+            >
+              <Link href={`/party/${party.id}/manage`}>
+                <Icons.settings className="w-5 h-5 mr-2" />
+                จัดการก๊วน
+              </Link>
+            </Button>
           ) : (
             <Button
               size="lg"

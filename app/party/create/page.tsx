@@ -122,7 +122,7 @@ export default function CreatePartyPage() {
       .single();
 
     if (!profile || profileError) {
-      console.log("Profile missing, auto-creating...");
+      // Profile missing, auto-creating...
       // Generate random Short ID
       const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
       const nums = "0123456789";

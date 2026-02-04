@@ -3,127 +3,183 @@
 
 @custom-variant dark (&:is(.dark *));
 
-:root {
-  /* Topminton Brand Colors - Cute 3D Cartoon & Mascot Style */
-  --background: #FFF8F0;
-  --foreground: #3D3D3D;
-  --card: #FFFFFF;
-  --card-foreground: #3D3D3D;
-  --popover: #FFFFFF;
-  --popover-foreground: #3D3D3D;
-  
-  /* Primary Orange - Warm & Friendly */
-  --primary: #FF9500;
-  --primary-foreground: #FFFFFF;
-  --primary-light: rgba(255, 149, 0, 0.12);
-  --primary-glass: rgba(255, 149, 0, 0.08);
-  
-  /* Secondary & Muted - Cream/Beige tones */
-  --secondary: #FFF5E6;
-  --secondary-foreground: #3D3D3D;
-  --muted: #F5EDE4;
-  --muted-foreground: #8B8B8B;
-  
-  /* Accent Colors - Soft Pastels */
-  --accent: #FFF0D9;
-  --accent-foreground: #FF9500;
-  --accent-gold: #FFD93D;
-  --accent-red: #FF6B6B;
-  --accent-green: #6BCB77;
-  --accent-orange: #FF9500;
-  --accent-cyan: #4ECDC4;
-  --accent-pink: #FFB6C1;
-  --accent-blue: #74B9FF;
-  
-  /* Level Badge Colors */
-  --level-beginner: #FF9500;
-  --level-bg: #31A24C;
-  --level-normal: #F7B928;
-  --level-strong: #F5793A;
-  --level-pro: #FA383E;
-  --level-champion: #8B5CF6;
-  
-  /* System Colors */
-  --destructive: #FA383E;
-  --destructive-foreground: #FFFFFF;
-  --border: #E4E6EB;
-  --input: #F0F2F5;
-  --ring: #FF9500;
-  
-  /* Glass Effect */
-  --glass-bg: rgba(255, 255, 255, 0.72);
-  --glass-border: rgba(255, 255, 255, 0.2);
-  
-  /* Charts */
-  --chart-1: #FF9500;
-  --chart-2: #31A24C;
-  --chart-3: #F7B928;
-  --chart-4: #F5793A;
-  --chart-5: #FA383E;
-  
-  /* Radius - iOS 26 Style */
-  --radius: 1rem;
-  --radius-sm: 0.5rem;
-  --radius-md: 0.75rem;
-  --radius-lg: 1rem;
-  --radius-xl: 1.25rem;
-  --radius-2xl: 1.5rem;
-  --radius-3xl: 2rem;
-  
-  /* Sidebar */
-  --sidebar: #FFFFFF;
-  --sidebar-foreground: #1A1A1A;
-  --sidebar-primary: #FF9500;
-  --sidebar-primary-foreground: #FFFFFF;
-  --sidebar-accent: #FFF5E6;
-  --sidebar-accent-foreground: #FF9500;
-  --sidebar-border: #E4E6EB;
-  --sidebar-ring: #FF9500;
-}
+@layer base {
+  :root {
+    /* Topminton Brand Colors - Standard Light Theme (Clean & Sporty) */
+    --background: #FFFFFF;
+    --foreground: #09090B;
+    /* Zinc-950 */
+    --card: #FFFFFF;
+    --card-foreground: #09090B;
+    --popover: #FFFFFF;
+    --popover-foreground: #09090B;
 
-.dark {
-  --background: #18191A;
-  --foreground: #E4E6EB;
-  --card: rgba(36, 37, 38, 0.9);
-  --card-foreground: #E4E6EB;
-  --popover: rgba(36, 37, 38, 0.95);
-  --popover-foreground: #E4E6EB;
-  --primary: #FF9500;
-  --primary-foreground: #FFFFFF;
-  --primary-light: rgba(255, 149, 0, 0.15);
-  --secondary: #3A3B3C;
-  --secondary-foreground: #E4E6EB;
-  --muted: #3A3B3C;
-  --muted-foreground: #B0B3B8;
-  --accent: rgba(255, 149, 0, 0.15);
-  --accent-foreground: #FF9500;
-  --destructive: #FA383E;
-  --destructive-foreground: #FFFFFF;
-  --border: #3E4042;
-  --input: #3A3B3C;
-  --ring: #FF9500;
-  --glass-bg: rgba(36, 37, 38, 0.72);
-  --glass-border: rgba(255, 255, 255, 0.1);
-  --chart-1: #FF9500;
-  --chart-2: #31A24C;
-  --chart-3: #F7B928;
-  --chart-4: #F5793A;
-  --chart-5: #FA383E;
-  --sidebar: #242526;
-  --sidebar-foreground: #E4E6EB;
-  --sidebar-primary: #FF9500;
-  --sidebar-primary-foreground: #FFFFFF;
-  --sidebar-accent: rgba(255, 149, 0, 0.15);
-  --sidebar-accent-foreground: #FF9500;
-  --sidebar-border: #3E4042;
-  --sidebar-ring: #FF9500;
+    --primary: #FF9500;
+    /* Original Orange Brand */
+    --primary-foreground: #FFFFFF;
+    --primary-light: rgba(255, 149, 0, 0.1);
+
+    --secondary: #F4F4F5;
+    /* Zinc-100 */
+    --secondary-foreground: #18181B;
+    /* Zinc-900 */
+
+    --muted: #F4F4F5;
+    --muted-foreground: #71717A;
+    /* Zinc-500 */
+
+    --accent: #F4F4F5;
+    --accent-foreground: #18181B;
+
+    --destructive: #EF4444;
+    --destructive-foreground: #FFFFFF;
+
+    --border: #E4E4E7;
+    /* Zinc-200 */
+    --input: #E4E4E7;
+    --ring: #FF9500;
+
+    --glass-bg: rgba(255, 255, 255, 0.8);
+    --glass-border: rgba(255, 255, 255, 0.5);
+
+    /* Level Colors */
+    --level-beginner: #FF9500;
+    --level-bg: #31A24C;
+    --level-normal: #F7B928;
+    --level-strong: #F5793A;
+    --level-pro: #FA383E;
+    --level-champion: #8B5CF6;
+
+    /* Chart Colors */
+    --chart-1: #FF9500;
+    --chart-2: #31A24C;
+    --chart-3: #F7B928;
+    --chart-4: #F5793A;
+    --chart-5: #FA383E;
+
+    /* Radius */
+    --radius: 1rem;
+    --radius-sm: 0.5rem;
+    --radius-md: 0.75rem;
+    --radius-lg: 1rem;
+    --radius-xl: 1.25rem;
+    --radius-2xl: 1.5rem;
+    --radius-3xl: 2rem;
+
+    /* Sidebar Defaults */
+    --sidebar: #FFFFFF;
+    --sidebar-foreground: #1A1A1A;
+    --sidebar-primary: #FF9500;
+    --sidebar-primary-foreground: #FFFFFF;
+    --sidebar-accent: #FFF5E6;
+    --sidebar-accent-foreground: #FF9500;
+    --sidebar-border: #E4E6EB;
+    --sidebar-ring: #FF9500;
+  }
+
+  /* CYBER-FUTURE DARK THEME */
+  .dark {
+    --background: #000000;
+    /* Deep Black */
+    --foreground: #FFFFFF;
+
+    /* Cyber Cards with slight transparency */
+    --card: rgba(10, 10, 10, 0.6);
+    --card-foreground: #FFFFFF;
+
+    --popover: #09090B;
+    --popover-foreground: #FFFFFF;
+
+    /* Neon Primary - Cyan/Electric Blue vibe mixed with Orange Brand */
+    --primary: #FF9500;
+    --primary-foreground: #000000;
+    --primary-light: rgba(255, 149, 0, 0.2);
+
+    /* Tech Secondary */
+    --secondary: #27272A;
+    /* Zinc-800 */
+    --secondary-foreground: #FFFFFF;
+
+    --muted: #18181B;
+    /* Zinc-900 */
+    --muted-foreground: #A1A1AA;
+    /* Zinc-400 */
+
+    --accent: rgba(34, 211, 238, 0.1);
+    /* Cyan Tint */
+    --accent-foreground: #22D3EE;
+    /* Cyan-400 */
+
+    --destructive: #EF4444;
+    --destructive-foreground: #FFFFFF;
+
+    --border: #27272A;
+    /* Zinc-800 */
+    --input: #27272A;
+    --ring: #22D3EE;
+    /* Neon Cyan Ring */
+
+    /* Cyber Glass */
+    --glass-bg: rgba(0, 0, 0, 0.7);
+    --glass-border: rgba(255, 255, 255, 0.1);
+
+    /* Chart Colors Dark */
+    --chart-1: #FF9500;
+    --chart-2: #31A24C;
+    --chart-3: #F7B928;
+    --chart-4: #F5793A;
+    --chart-5: #FA383E;
+
+    /* Sidebar Dark */
+    --sidebar: #09090B;
+    --sidebar-foreground: #E4E6EB;
+    --sidebar-primary: #FF9500;
+    --sidebar-primary-foreground: #FFFFFF;
+    --sidebar-accent: rgba(255, 149, 0, 0.15);
+    --sidebar-accent-foreground: #FF9500;
+    --sidebar-border: #27272A;
+    --sidebar-ring: #FF9500;
+
+    /* CYBER FONT OVERRIDE - DISABLED (Using Insta Font Globally) */
+    /* --font-sans: 'Geist Mono', monospace; */
+    /* --font-heading: 'Geist Mono', monospace; */
+  }
+
+  /* Force Mono Font in Dark Mode Application-Wide - DISABLED */
+  /* .dark * {
+    font-family: 'Geist Mono', 'Courier New', monospace;
+    letter-spacing: -0.02em;
+  } */
+
+  /* Cyber Selection */
+  .dark ::selection {
+    background-color: #22D3EE;
+    /* Cyan */
+    color: #000000;
+  }
+
+  /* Neon Charts */
+  .dark {
+    --chart-1: #22D3EE;
+    /* Cyan */
+    --chart-2: #C084FC;
+    /* Purple */
+    --chart-3: #4ADE80;
+    /* Green */
+    --chart-4: #F472B6;
+    /* Pink */
+    --chart-5: #FF9500;
+    /* Orange */
+  }
 }
 
 @theme inline {
-  /* Thai-compatible fonts */
-  --font-sans: 'Prompt', 'Geist', system-ui, sans-serif;
+  /* Thai-compatible fonts (Instagram Style) */
+  /* Thai-compatible fonts (Instagram Style - Native System Fonts First) */
+  --font-sans: -apple-system, BlinkMacSystemFont, "Sukhumvit Set", "Thonburi", "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
   --font-mono: 'Geist Mono', monospace;
-  
+  /* --font-heading: var(--font-inter), var(--font-ibm-thai), sans-serif; */
+
   /* Colors */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -144,16 +200,10 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
-  
+
   /* Custom Brand Colors */
   --color-primary-light: var(--primary-light);
-  --color-primary-glass: var(--primary-glass);
-  --color-accent-gold: var(--accent-gold);
-  --color-accent-red: var(--accent-red);
-  --color-accent-green: var(--accent-green);
-  --color-accent-orange: var(--accent-orange);
-  --color-accent-cyan: var(--accent-cyan);
-  
+
   /* Level Colors */
   --color-level-beginner: var(--level-beginner);
   --color-level-bg: var(--level-bg);
@@ -161,26 +211,26 @@
   --color-level-strong: var(--level-strong);
   --color-level-pro: var(--level-pro);
   --color-level-champion: var(--level-champion);
-  
+
   /* Glass */
   --color-glass-bg: var(--glass-bg);
   --color-glass-border: var(--glass-border);
-  
+
   /* Charts */
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
   --color-chart-3: var(--chart-3);
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
-  
-  /* Radius - iOS 26 Style */
+
+  /* Radius */
   --radius-sm: var(--radius-sm);
   --radius-md: var(--radius-md);
   --radius-lg: var(--radius-lg);
   --radius-xl: var(--radius-xl);
   --radius-2xl: var(--radius-2xl);
   --radius-3xl: var(--radius-3xl);
-  
+
   /* Sidebar */
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
@@ -196,107 +246,192 @@
   * {
     @apply border-border outline-ring/50;
   }
+
   body {
     @apply bg-background text-foreground;
   }
-  
+
   /* iOS Safe Area */
   .safe-area-top {
     padding-top: env(safe-area-inset-top);
   }
+
   .safe-area-bottom {
     padding-bottom: env(safe-area-inset-bottom);
   }
 }
 
 @layer components {
-  /* Puffy 3D Card Effect - Cute Mascot Style */
+
+  /* Puffy 3D Card Effect - Cute Mascot Style (Light Mode) */
   .puffy-card {
     background: var(--card);
     border-radius: 1.25rem;
-    box-shadow: 
+    box-shadow:
       0 4px 0 0 rgba(0, 0, 0, 0.05),
       0 8px 16px -4px rgba(0, 0, 0, 0.08),
       inset 0 2px 0 0 rgba(255, 255, 255, 0.8);
     border: 1px solid rgba(255, 255, 255, 0.5);
     transition: all 0.2s ease;
   }
-  
+
+  /* CYBER CARD OVERRIDE (Dark Mode) */
+  .dark .puffy-card {
+    background: rgba(10, 10, 10, 0.8);
+    /* Dark Glass */
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow:
+      0 0 20px rgba(0, 0, 0, 0.5),
+      inset 0 0 0 0 transparent;
+    /* Remove puffy highlight */
+    backdrop-filter: blur(10px);
+    border-radius: 1rem;
+    /* Slightly sharper */
+  }
+
+  /* Add Neon Holo Effect on Hover in Dark Mode */
+  .dark .puffy-card:hover {
+    box-shadow:
+      0 0 25px rgba(34, 211, 238, 0.15),
+      /* Cyan Glow */
+      0 0 1px rgba(34, 211, 238, 0.5);
+    /* Sharp Edge */
+    border-color: rgba(34, 211, 238, 0.3);
+    transform: translateY(-2px);
+  }
+
   .puffy-card:hover {
     transform: translateY(-2px);
-    box-shadow: 
+    box-shadow:
       0 6px 0 0 rgba(0, 0, 0, 0.05),
       0 12px 24px -4px rgba(0, 0, 0, 0.1),
       inset 0 2px 0 0 rgba(255, 255, 255, 0.8);
   }
-  
+
   .puffy-card:active {
     transform: translateY(0);
-    box-shadow: 
+    box-shadow:
       0 2px 0 0 rgba(0, 0, 0, 0.05),
       0 4px 8px -2px rgba(0, 0, 0, 0.08),
       inset 0 2px 0 0 rgba(255, 255, 255, 0.8);
   }
-  
-  /* Puffy Button - 3D Candy Style */
+
+  /* Puffy Button - 3D Candy Style (Light Mode) */
   .puffy-button {
     background: linear-gradient(180deg, var(--primary) 0%, #E68600 100%);
     border-radius: 1rem;
-    box-shadow: 
+    box-shadow:
       0 4px 0 0 #CC7A00,
       0 6px 12px -2px rgba(255, 149, 0, 0.4),
       inset 0 2px 0 0 rgba(255, 255, 255, 0.3);
     transition: all 0.15s ease;
+    border: none;
   }
-  
+
+  /* CYBER BUTTON OVERRIDE (Dark Mode) */
+  .dark .puffy-button {
+    background: transparent;
+    border: 1px solid var(--primary);
+    box-shadow:
+      0 0 10px rgba(255, 149, 0, 0.2),
+      inset 0 0 0 0 transparent;
+    color: var(--primary);
+    text-shadow: 0 0 10px rgba(255, 149, 0, 0.5);
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    border-radius: 0.75rem;
+  }
+
+  .dark .puffy-button:hover {
+    background: var(--primary);
+    color: black;
+    box-shadow: 0 0 20px rgba(255, 149, 0, 0.6);
+  }
+
   .puffy-button:active {
     transform: translateY(2px);
-    box-shadow: 
+    box-shadow:
       0 2px 0 0 #CC7A00,
       0 3px 6px -1px rgba(255, 149, 0, 0.4),
       inset 0 2px 0 0 rgba(255, 255, 255, 0.3);
   }
 
-  /* Glass Card Effect - iOS 26 Style */
+  /* Glass Card Effect - iOS 26 Style (Light) -> Cyber Glass (Dark) */
   .glass-card {
     background: var(--glass-bg);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
     border: 1px solid var(--glass-border);
+    transition: all 0.3s ease;
   }
-  
+
+  /* Cyber Glass Tweaks */
+  .dark .glass-card {
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.05);
+    /* Subtle inner ring */
+  }
+
+  .dark .glass-card:hover {
+    border-color: rgba(255, 255, 255, 0.3);
+    box-shadow: 0 0 15px rgba(139, 92, 246, 0.2);
+    /* Purple Glow Hint */
+  }
+
   .glass-card-solid {
     background: var(--card);
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
   }
-  
+
+  /* HEADINGS & TEXT CYBER TWEAKS */
+  .dark h1,
+  .dark h2,
+  .dark h3 {
+    letter-spacing: 0.02em;
+    /* Slightly wider for tech feel */
+  }
+
+  .dark h1 {
+    text-shadow: 0 0 20px rgba(255, 255, 255, 0.1);
+  }
+
+  /* ACTIVE STATE/NAVBAR ITEMS */
+  .dark .active-nav-item {
+    text-shadow: 0 0 10px currentColor;
+    /* Neon text glow */
+  }
+
   /* Level Badges */
   .badge-beginner {
     background: var(--level-beginner);
     color: white;
   }
+
   .badge-bg {
     background: var(--level-bg);
     color: white;
   }
+
   .badge-normal {
     background: var(--level-normal);
     color: white;
   }
+
   .badge-strong {
     background: var(--level-strong);
     color: white;
   }
+
   .badge-pro {
     background: var(--level-pro);
     color: white;
   }
+
   .badge-champion {
     background: var(--level-champion);
     color: white;
   }
-  
+
   /* Bottom Navigation */
   .bottom-nav {
     position: fixed;
@@ -309,18 +444,28 @@
     border-top: 1px solid var(--border);
     padding-bottom: env(safe-area-inset-bottom);
   }
-  
+
+  .dark .bottom-nav {
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.5);
+  }
+
+  /* Tab Bar Active line glow in Dark Mode */
+  .dark .tab-active-indicator {
+    box-shadow: 0 0 10px var(--primary);
+  }
+
   /* iOS-style touch feedback */
   .tap-highlight {
     -webkit-tap-highlight-color: transparent;
   }
-  
+
   .tap-highlight:active {
     opacity: 0.7;
     transform: scale(0.98);
     transition: all 0.1s ease;
   }
-  
+
   /* Notification dot */
   .notification-dot {
     position: absolute;
@@ -332,60 +477,61 @@
     border-radius: 50%;
     border: 2px solid var(--background);
   }
-  
+
   /* Hide scrollbar but allow scrolling */
   .scrollbar-hide {
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
+
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
-  
+
   /* Custom Animations */
   .animate-slide-up {
     animation: slideUp 0.3s ease-out;
   }
-  
+
   .animate-slide-down {
     animation: slideDown 0.3s ease-out;
   }
-  
+
   .animate-fade-in {
     animation: fadeIn 0.2s ease-out;
   }
-  
+
   .animate-scale-in {
     animation: scaleIn 0.2s ease-out;
   }
-  
+
   .animate-bounce-in {
     animation: bounceIn 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
   }
-  
+
   .animate-pulse-soft {
     animation: pulseSoft 2s ease-in-out infinite;
   }
-  
+
   .animate-shimmer {
     animation: shimmer 1.5s ease-in-out infinite;
     background: linear-gradient(90deg, var(--muted) 25%, var(--background) 50%, var(--muted) 75%);
     background-size: 200% 100%;
   }
-  
+
   .animate-float {
     animation: float 3s ease-in-out infinite;
   }
-  
+
   .animate-glow {
     animation: glow 2s ease-in-out infinite;
   }
-  
+
   .animate-flip {
     animation: flip 0.6s ease-in-out;
     transform-style: preserve-3d;
   }
-  
+
   .animate-confetti {
     animation: confetti 1s ease-out forwards;
   }
@@ -396,6 +542,7 @@
     opacity: 0;
     transform: translateY(20px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -407,6 +554,7 @@
     opacity: 0;
     transform: translateY(-20px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -417,6 +565,7 @@
   from {
     opacity: 0;
   }
+
   to {
     opacity: 1;
   }
@@ -427,6 +576,7 @@
     opacity: 0;
     transform: scale(0.9);
   }
+
   to {
     opacity: 1;
     transform: scale(1);
@@ -438,12 +588,15 @@
     opacity: 0;
     transform: scale(0.3);
   }
+
   50% {
     transform: scale(1.05);
   }
+
   70% {
     transform: scale(0.9);
   }
+
   100% {
     opacity: 1;
     transform: scale(1);
@@ -451,9 +604,12 @@
 }
 
 @keyframes pulseSoft {
-  0%, 100% {
+
+  0%,
+  100% {
     opacity: 1;
   }
+
   50% {
     opacity: 0.7;
   }
@@ -463,24 +619,31 @@
   0% {
     background-position: 200% 0;
   }
+
   100% {
     background-position: -200% 0;
   }
 }
 
 @keyframes float {
-  0%, 100% {
+
+  0%,
+  100% {
     transform: translateY(0);
   }
+
   50% {
     transform: translateY(-10px);
   }
 }
 
 @keyframes glow {
-  0%, 100% {
+
+  0%,
+  100% {
     box-shadow: 0 0 5px var(--primary), 0 0 10px var(--primary);
   }
+
   50% {
     box-shadow: 0 0 20px var(--primary), 0 0 30px var(--primary);
   }
@@ -490,9 +653,11 @@
   0% {
     transform: perspective(400px) rotateY(0);
   }
+
   50% {
     transform: perspective(400px) rotateY(90deg);
   }
+
   100% {
     transform: perspective(400px) rotateY(0);
   }
@@ -503,8 +668,249 @@
     transform: translateY(0) rotate(0deg);
     opacity: 1;
   }
+
   100% {
     transform: translateY(-200px) rotate(720deg);
     opacity: 0;
   }
+}
+
+/* ============================================
+   INSTAGRAM-STYLE ANIMATIONS (Pure CSS)
+   ============================================ */
+
+/* Page Transition - Fade & Scale */
+@keyframes page-enter {
+  from {
+    opacity: 0;
+    transform: scale(0.98) translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.page-transition {
+  animation: page-enter 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+/* Staggered Fade In (for lists) */
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  opacity: 0;
+}
+
+/* Stagger delay utilities */
+.stagger-1 {
+  animation-delay: 0.05s;
+}
+
+.stagger-2 {
+  animation-delay: 0.1s;
+}
+
+.stagger-3 {
+  animation-delay: 0.15s;
+}
+
+.stagger-4 {
+  animation-delay: 0.2s;
+}
+
+.stagger-5 {
+  animation-delay: 0.25s;
+}
+
+.stagger-6 {
+  animation-delay: 0.3s;
+}
+
+.stagger-7 {
+  animation-delay: 0.35s;
+}
+
+.stagger-8 {
+  animation-delay: 0.4s;
+}
+
+.stagger-9 {
+  animation-delay: 0.45s;
+}
+
+.stagger-10 {
+  animation-delay: 0.5s;
+}
+
+/* Tap Effect (like Instagram) */
+.tap-effect {
+  transition: transform 0.1s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.tap-effect:active {
+  transform: scale(0.97);
+}
+
+/* Smooth transitions for interactive elements */
+.smooth-transition {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Shuttlecock Loading Animation */
+@keyframes shuttlecock-spin {
+  0% {
+    transform: translateY(0) rotate(0deg);
+  }
+
+  25% {
+    transform: translateY(-8px) rotate(10deg);
+  }
+
+  50% {
+    transform: translateY(0) rotate(0deg);
+  }
+
+  75% {
+    transform: translateY(-8px) rotate(-10deg);
+  }
+
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
+}
+
+@keyframes shuttlecock-shadow {
+  0% {
+    transform: scale(1);
+    opacity: 0.5;
+  }
+
+  25% {
+    transform: scale(0.8);
+    opacity: 0.3;
+  }
+
+  50% {
+    transform: scale(1);
+    opacity: 0.5;
+  }
+
+  75% {
+    transform: scale(0.8);
+    opacity: 0.3;
+  }
+
+  100% {
+    transform: scale(1);
+    opacity: 0.5;
+  }
+}
+
+.animate-shuttlecock-spin {
+  animation: shuttlecock-spin 2s ease-in-out infinite;
+}
+
+.animate-shuttlecock-shadow {
+  animation: shuttlecock-shadow 2s ease-in-out infinite;
+}
+
+/* Enhanced Shuttlecock Animation */
+@keyframes shuttlecock-spin {
+  0% {
+    transform: translateY(0) rotate(0deg);
+  }
+
+  50% {
+    transform: translateY(-10px) rotate(5deg);
+  }
+
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
+}
+
+/* Smash Animation Sequence */
+
+/* 1. Shuttlecock Movement */
+@keyframes shuttlecock-sequence {
+
+  0%,
+  60% {
+    transform: translate(0, 0) rotate(0deg);
+    opacity: 1;
+  }
+
+  65% {
+    transform: translate(0, -10px) rotate(-10deg);
+    /* Prepare to be hit */
+  }
+
+  70% {
+    transform: translate(100px, 100px) rotate(45deg);
+    /* SMASHED! Fly away */
+    opacity: 0;
+  }
+
+  71% {
+    transform: translate(-50px, -50px) rotate(0deg);
+    /* Reset position hidden */
+    opacity: 0;
+  }
+
+  80%,
+  100% {
+    transform: translate(0, 0) rotate(0deg);
+    /* Fade in back */
+    opacity: 1;
+  }
+}
+
+/* 2. Racket Swing */
+@keyframes racket-swing {
+
+  0%,
+  55% {
+    transform: rotate(45deg) translate(50px, -50px);
+    opacity: 0;
+  }
+
+  60% {
+    opacity: 1;
+    transform: rotate(45deg) translate(20px, -20px);
+    /* Appear */
+  }
+
+  65% {
+    transform: rotate(-10deg) translate(-10px, 10px);
+    /* SWING! */
+    opacity: 1;
+  }
+
+  75%,
+  100% {
+    transform: rotate(-45deg) translate(-50px, 50px);
+    /* Follow through */
+    opacity: 0;
+  }
+}
+
+.animate-shuttlecock-sequence {
+  animation: shuttlecock-sequence 2s ease-in-out infinite;
+}
+
+.animate-racket-swing {
+  animation: racket-swing 2s ease-in-out infinite;
 }
