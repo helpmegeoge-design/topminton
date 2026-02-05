@@ -39,6 +39,11 @@ const levelConfig: Record<string, { label: string; color: string; style?: React.
   strong: { label: "S", color: "text-white", style: { backgroundColor: "#c2410c" } },
   pro: { label: "P", color: "text-white", style: { backgroundColor: "#dc2626" } },
   champion: { label: "C", color: "text-white", className: "bg-gradient-to-r from-yellow-500 to-amber-600" },
+
+  // New Party Levels
+  light: { label: "เบา", color: "text-white", style: { backgroundColor: "#22c55e" } }, // Green-500
+  medium: { label: "กลาง", color: "text-white", style: { backgroundColor: "#ea580c" } }, // Orange-600
+  heavy: { label: "หนัก", color: "text-white", style: { backgroundColor: "#dc2626" } }, // Red-600
 };
 
 const sizeConfig = {

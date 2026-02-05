@@ -17,7 +17,7 @@ const faqs = [
   {
     category: "general",
     question: "Topminton คืออะไร?",
-    answer: "Topminton เป็นแอปพลิเคชันสำหรับคนรักแบดมินตัน ช่วยให้คุณค้นหาคอร์ท หาก๊วน และติดตามสถิติการเล่นของคุณได้อย่างง่ายดาย",
+    answer: "Topminton เป็นแอปพลิเคชันสำหรับคนรักแบดมินตัน ช่วยให้คุณตีเกม หาก๊วน และติดตามสถิติการเล่นของคุณได้อย่างง่ายดาย",
   },
   {
     category: "general",
@@ -100,7 +100,7 @@ export default function HelpPage() {
         {/* FAQ Section */}
         <div>
           <h2 className="font-semibold text-foreground mb-3">คำถามที่พบบ่อย</h2>
-          
+
           {/* Category Tabs */}
           <div className="flex gap-2 mb-4 overflow-x-auto scrollbar-hide">
             {faqCategories.map((cat) => (

@@ -1611,6 +1611,7 @@ export const Icons = {
 
   // Status & feedback
   check: CheckIcon,
+  checkCircle: CheckCircleIcon,
   star: StarIcon,
   heart: HeartIcon,
   thumbsUp: ThumbsUpIcon,
@@ -1658,6 +1659,7 @@ export const Icons = {
   verified: CheckIcon,
   swords: TrophyIcon,
   play: PlayIcon,
+  link: LinkIcon,
 };
 
 // Additional named exports for compatibility
@@ -1697,6 +1699,16 @@ export function PlayIcon({ className, size = 24 }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={cn("text-current", className)}>
       <path d="M8 5V19L19 12L8 5Z" />
+    </svg>
+  );
+}
+
+// Link Icon
+export function LinkIcon({ className, size = 24 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={cn("text-current", className)}>
+      <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }

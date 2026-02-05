@@ -15,7 +15,7 @@ interface QuickMenuItem {
 
 const quickMenuItems: QuickMenuItem[] = [
   { href: "/party", label: "หาก๊วน", image: "/icons/find-party.jpg" },
-  { href: "/courts", label: "หาคอร์ท", image: "/icons/find-court.jpg" },
+  { href: "/courts", label: "ตีเกม", image: "/icons/find-court.jpg" },
   { href: "/tools/cost-calculator", label: "คิดเงิน", icon: Icons.money, isNew: true }, // Changed to Icons.money
   { href: "/tools/team-generator", label: "สุ่มจับคู่", image: "/icons/team-generator.jpg" },
   { href: "/tools/scoreboard", label: "Scoreboard", image: "/icons/scoreboard.jpg" },

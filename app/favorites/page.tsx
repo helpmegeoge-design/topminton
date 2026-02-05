@@ -140,7 +140,7 @@ export default function FavoritesPage() {
                 onClick={() => router.push("/courts")}
                 className="mt-4 text-sm text-primary font-medium"
               >
-                ค้นหาคอร์ท
+                ตีเกม
               </button>
             </div>
           ) : (

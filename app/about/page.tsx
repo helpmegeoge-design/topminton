@@ -13,7 +13,7 @@ const appInfo = {
 };
 
 const features = [
-  { icon: Icons.mapPin, title: "หาคอร์ท", description: "ค้นหาสนามแบดมินตันใกล้คุณ" },
+  { icon: Icons.mapPin, title: "ตีเกม", description: "ค้นหาสนามแบดมินตันใกล้คุณ" },
   { icon: Icons.users, title: "หาก๊วน", description: "เข้าร่วมก๊วนตีแบดกับคนอื่น" },
   { icon: Icons.trophy, title: "แข่งขัน", description: "สมัครแข่งขันและดูผลลัพธ์" },
   { icon: Icons.ranking, title: "Ranking", description: "จัดอันดับและ Ladder System" },
@@ -29,7 +29,7 @@ const socialLinks = [
 
 export default function AboutPage() {
   return (
-    <AppShell hideBottomNav>
+    <AppShell hideNav>
       {/* Header */}
       <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-lg border-b border-border">
         <div className="flex items-center gap-3 px-4 py-3">

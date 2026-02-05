@@ -69,7 +69,7 @@ export default function SearchPage() {
               <Icons.search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
               <Input
                 type="search"
-                placeholder="ค้นหาคอร์ท, ก๊วน, แข่งขัน..."
+                placeholder="ตีเกม, ก๊วน, แข่งขัน..."
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 className="pl-10 pr-10"

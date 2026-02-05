@@ -17,7 +17,7 @@ const slides: OnboardingSlide[] = [
   {
     icon: "shuttlecock",
     title: "ยินดีต้อนรับสู่ Topminton",
-    description: "แอปสำหรับคนรักแบดมินตัน หาก๊วน หาคอร์ท และเชื่อมต่อกับเพื่อนๆ นักแบด",
+    description: "แอปสำหรับคนรักแบดมินตัน หาก๊วน ตีเกม และเชื่อมต่อกับเพื่อนๆ นักแบด",
     color: "from-blue-500 to-cyan-500",
   },
   {

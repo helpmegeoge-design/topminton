@@ -8,6 +8,7 @@ import { Icons, ArrowLeftIcon, UsersIcon, CalendarIcon, ClockIcon, InfoIcon, Cou
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { LoadingShuttlecock } from "@/components/ui/loading-shuttlecock";
 import { CounterInput } from "@/components/ui/counter-input";
 import type { Level } from "@/components/ui/level-badge";
@@ -28,6 +29,12 @@ const levelOptions: { id: Level; label: string }[] = [
     { id: "strong", label: "S" },
     { id: "pro", label: "P" },
     { id: "champion", label: "B-A" },
+];
+
+const partyLevelOptions = [
+    { id: "light", label: "เบา", color: "bg-green-100 text-green-700" },
+    { id: "medium", label: "กลาง", color: "bg-yellow-100 text-yellow-700" },
+    { id: "heavy", label: "หนัก", color: "bg-red-100 text-red-700" },
 ];
 
 export default function ManagePartyPage() {
@@ -60,6 +67,10 @@ export default function ManagePartyPage() {
     const [requireLevel, setRequireLevel] = useState(false);
     const [selectedLevels, setSelectedLevels] = useState<Level[]>([]);
     const [noWalkIn, setNoWalkIn] = useState(false);
+
+    // Import Members State
+    const [importText, setImportText] = useState("");
+    const [isImporting, setIsImporting] = useState(false);
 
     // Tab state
     const [activeTab, setActiveTab] = useState<"info" | "members">("info");
@@ -148,27 +159,49 @@ export default function ManagePartyPage() {
             const membersList = partyMembers || [];
 
             // Fetch profiles for members
-            const userIds = membersList.map(m => m.user_id);
+            const userIds = membersList
+                .map(m => m.user_id)
+                .filter((id): id is string => !!id); // Filter out nulls (guests)
+
+            let profiles: any[] = [];
             if (userIds.length > 0) {
-                const { data: profiles } = await supabase
+                const { data } = await supabase
                     .from('profiles')
                     .select('id, display_name, first_name, avatar_url, short_id')
                     .in('id', userIds);
-
-                const membersWithProfiles = membersList.map(member => {
-                    const profile = profiles?.find(p => p.id === member.user_id);
-                    return { ...member, profile };
-                });
-
-                // Sort: Host first
-                const sorted = membersWithProfiles.sort((a, b) => {
-                    if (a.user_id === partyData.host_id) return -1;
-                    if (b.user_id === partyData.host_id) return 1;
-                    return 0;
-                });
-
-                setMembers(sorted);
+                profiles = data || [];
             }
+
+            const membersWithProfiles = membersList.map(member => {
+                if (member.user_id) {
+                    const profile = profiles.find(p => p.id === member.user_id);
+                    return { ...member, profile };
+                } else {
+                    // It's a guest
+                    return {
+                        ...member,
+                        profile: {
+                            id: 'guest',
+                            display_name: member.guest_name || 'Guest',
+                            first_name: member.guest_name || 'Guest',
+                            avatar_url: null,
+                            short_id: 'GUEST'
+                        }
+                    };
+                }
+            });
+
+            // Sort: Host first, then Users, then Guests
+            const sorted = membersWithProfiles.sort((a, b) => {
+                if (a.user_id === partyData.host_id) return -1;
+                if (b.user_id === partyData.host_id) return 1;
+                // If one is guest and other is user
+                if (!a.user_id && b.user_id) return 1;
+                if (a.user_id && !b.user_id) return -1;
+                return 0;
+            });
+
+            setMembers(sorted);
 
             setIsLoading(false);
         };
@@ -288,6 +321,14 @@ export default function ManagePartyPage() {
                 // Update local state
                 const { data: newMember } = await supabase.from('profiles').select('*').eq('id', currentUser.id).single();
                 setMembers([...members, { user_id: currentUser.id, profile: newMember }]);
+
+                // Sync Party Count
+                const { count } = await supabase.from('party_members').select('*', { count: 'exact', head: true }).eq('party_id', id);
+                if (count !== null) {
+                    await supabase.from('parties').update({ current_players: count }).eq('id', id);
+                    setParty(prev => ({ ...prev, current_players: count }));
+                }
+
             } else {
                 // Leave
                 const { error } = await supabase
@@ -298,6 +339,13 @@ export default function ManagePartyPage() {
                 if (error) throw error;
                 // Update local state
                 setMembers(members.filter(m => m.user_id !== currentUser.id));
+
+                // Sync Party Count
+                const { count } = await supabase.from('party_members').select('*', { count: 'exact', head: true }).eq('party_id', id);
+                if (count !== null) {
+                    await supabase.from('parties').update({ current_players: count }).eq('id', id);
+                    setParty(prev => ({ ...prev, current_players: count }));
+                }
             }
         } catch (err) {
             console.error(err);
@@ -317,28 +365,22 @@ export default function ManagePartyPage() {
             const { error } = await supabase
                 .from('party_members')
                 .delete()
-                .eq('user_id', memberId)
-                .eq('party_id', id);
+                .eq('id', memberId); // Use Primary Key ID
 
             if (error) {
                 console.error(error);
                 alert("เกิดข้อผิดพลาดในการลบสมาชิก");
             } else {
                 // Remove from local state
-                setMembers(prev => prev.filter(m => m.user_id !== memberId));
+                setMembers(prev => prev.filter(m => m.id !== memberId));
 
-                // Update current_players count
-                const { error: updateError } = await supabase
-                    .from('parties')
-                    .update({
-                        current_players: Math.max(0, (party?.current_players || 0) - 1)
-                    })
-                    .eq('id', id);
-
-                if (!updateError) {
+                // Sync Party Count
+                const { count } = await supabase.from('party_members').select('*', { count: 'exact', head: true }).eq('party_id', id);
+                if (count !== null) {
+                    await supabase.from('parties').update({ current_players: count }).eq('id', id);
                     setParty((prev: any) => ({
                         ...prev,
-                        current_players: Math.max(0, (prev?.current_players || 0) - 1)
+                        current_players: count
                     }));
                 }
 
@@ -347,6 +389,232 @@ export default function ManagePartyPage() {
         } catch (err) {
             console.error(err);
             alert("เกิดข้อผิดพลาด");
+        }
+    };
+
+    const handleUpdateMemberLevelById = async (partyMemberId: string, level: string) => {
+        const supabase = createClient();
+        if (!supabase) return;
+
+        // Optimistic Update
+        setMembers(prev => prev.map(m => m.id === partyMemberId ? { ...m, skill_level: level } : m));
+
+        try {
+            const { error } = await supabase
+                .from('party_members')
+                .update({ skill_level: level })
+                .eq('id', partyMemberId);
+
+            if (error) {
+                console.error("Update level error:", error);
+                // Revert on error could be implemented here
+            }
+        } catch (err) {
+            console.error("Update level error:", err);
+        }
+    };
+
+    const handleLinkGuest = async (memberId: string, currentName: string) => {
+        const shortIdInput = prompt(`กรอก User ID เพื่อเชื่อมต่อกับ Guest "${currentName}" (เช่น 1001)`);
+        if (!shortIdInput || !shortIdInput.trim()) return;
+
+        const supabase = createClient();
+        if (!supabase) return;
+
+        try {
+            // 1. Find User by Short ID
+            const { data: users, error: userError } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('short_id', shortIdInput.trim())
+                .limit(1);
+
+            if (userError || !users || users.length === 0) {
+                alert("ไม่พบผู้ใช้ที่มี ID นี้");
+                return;
+            }
+
+            const targetUser = users[0];
+
+            // 2. Check if user already in party
+            const isAlreadyMember = members.some(m => m.user_id === targetUser.id);
+            if (isAlreadyMember) {
+                alert(`ผู้ใช้ "${targetUser.display_name}" อยู่ในก๊วนนี้แล้ว`);
+                return;
+            }
+
+            // 3. Update Party Member
+            const { error: updateError } = await supabase
+                .from('party_members')
+                .update({
+                    user_id: targetUser.id,
+                    guest_name: null, // Clear guest name to make them a real user
+                    // status: 'joined' // Keep existing status
+                })
+                .eq('id', memberId);
+
+            if (updateError) {
+                console.error("Link error:", updateError);
+                alert("เกิดข้อผิดพลาดในการเชื่อมต่อข้อมูล");
+            } else {
+                // 4. Update Local State
+                setMembers(prev => prev.map(m => {
+                    if (m.id === memberId) {
+                        return {
+                            ...m,
+                            user_id: targetUser.id,
+                            guest_name: null,
+                            profile: targetUser
+                        };
+                    }
+                    return m;
+                }));
+                alert(`เชื่อมต่อกับผู้ใช้ "${targetUser.display_name}" เรียบร้อยแล้ว`);
+            }
+
+        } catch (err) {
+            console.error(err);
+            alert("เกิดข้อผิดพลาด");
+        }
+    };
+
+    const handleImportMembers = async () => {
+        if (!importText.trim()) return;
+        setIsImporting(true);
+        const supabase = createClient();
+        if (!supabase) {
+            setIsImporting(false);
+            return;
+        }
+
+        try {
+            // 1. Parse names
+            const lines = importText.split('\n').map(l => l.trim()).filter(l => l);
+            const namesToFind: string[] = [];
+
+            // Strict Numbered Mode Detection
+            const strictPattern = /^(\d+)[\.\)\-\s]+\s*(.*)/;
+            const numberedLines = lines.filter(l => strictPattern.test(l));
+            const useStrictMode = numberedLines.length > 0;
+
+            if (useStrictMode) {
+                for (const line of lines) {
+                    const match = line.match(strictPattern);
+                    if (match) {
+                        const name = match[2].trim();
+                        if (name && name.length > 0) namesToFind.push(name);
+                    }
+                }
+            } else {
+                const excludePatterns = [
+                    /^[🧡📍🏸❌]/, /[🧡📍🏸❌]$/, /^https?:\/\//,
+                    /^(ปิด|คอร์ท|สนาม|เวลา|วันที่|ลงชื่อ|@)/,
+                    /(กติก|พรุ่งนี้|วันนี้|พบกัน|นัด|คอนเท้น|แรง|จบบ่แฮง)/,
+                ];
+                for (const line of lines) {
+                    const isHeaderFooter = excludePatterns.some(pattern => pattern.test(line));
+                    if (!isHeaderFooter && line.length < 50) namesToFind.push(line);
+                }
+            }
+
+            if (namesToFind.length === 0) {
+                alert("ไม่พบรายชื่อในข้อความ");
+                setIsImporting(false);
+                return;
+            }
+
+            // 2. Search & Add
+            let addedCount = 0;
+            let guestsAddedCount = 0;
+
+            for (const name of namesToFind) {
+                // Normalize name (simple trim)
+                const cleanName = name.replace(/[\u200B-\u200D\uFEFF]/g, ''); // Remove zero width chars
+
+                // Try to find user by display_name or first_name
+                const { data: users } = await supabase
+                    .from('profiles')
+                    .select('id, display_name, first_name, avatar_url, short_id')
+                    .or(`display_name.ilike.%${cleanName}%,first_name.ilike.%${cleanName}%`)
+                    .limit(1);
+
+                if (users && users.length > 0) {
+                    const user = users[0];
+                    // Check if already in party
+                    const isAlreadyMember = members.some(m => m.user_id === user.id);
+
+                    if (!isAlreadyMember) {
+                        const { error } = await supabase
+                            .from('party_members')
+                            .insert({
+                                party_id: id,
+                                user_id: user.id,
+                                status: 'joined',
+                                payment_status: 'pending'
+                            });
+
+                        if (!error) {
+                            addedCount++;
+                            // Update local state temporarily
+                            setMembers(prev => [...prev, { user_id: user.id, profile: user }]);
+                        }
+                    }
+                } else {
+                    // Not found -> Add as Guest
+                    // Check if already exist as guest with same name (simple check)
+                    const isAlreadyGuest = members.some(m => !m.user_id && m.guest_name === cleanName);
+
+                    if (!isAlreadyGuest) {
+                        const { error } = await supabase
+                            .from('party_members')
+                            .insert({
+                                party_id: id,
+                                user_id: null, // No user ID
+                                guest_name: cleanName,
+                                status: 'joined',
+                                payment_status: 'pending'
+                            });
+
+                        if (!error) {
+                            guestsAddedCount++;
+                            setMembers(prev => [...prev, {
+                                user_id: null,
+                                guest_name: cleanName,
+                                profile: {
+                                    id: 'guest',
+                                    display_name: cleanName,
+                                    first_name: cleanName,
+                                    avatar_url: null,
+                                    short_id: 'GUEST'
+                                }
+                            }]);
+                        }
+                    }
+                }
+            }
+
+            // Update party count if added
+            // Sync Party Count
+            const { count } = await supabase.from('party_members').select('*', { count: 'exact', head: true }).eq('party_id', id);
+
+            const totalAdded = addedCount + guestsAddedCount; // Re-introduced
+
+            if (count !== null) {
+                await supabase.from('parties').update({ current_players: count }).eq('id', id);
+                setParty((prev: any) => ({
+                    ...prev,
+                    current_players: count
+                }));
+            }
+
+            alert(`เพิ่มสมาชิกเรียบร้อย ${totalAdded} คน\n(สมาชิก: ${addedCount}, Guest: ${guestsAddedCount})`);
+            setImportText("");
+
+        } catch (error) {
+            console.error("Import error:", error);
+            alert("เกิดข้อผิดพลาดในการนำเข้า");
+        } finally {
+            setIsImporting(false);
         }
     };
 
@@ -519,7 +787,7 @@ export default function ManagePartyPage() {
                                 value={maxParticipants}
                                 onChange={setMaxParticipants}
                                 min={2}
-                                max={20}
+                                max={50}
                                 label="จำนวนผู้เล่นสูงสุด"
                             />
                         </div>
@@ -661,6 +929,31 @@ export default function ManagePartyPage() {
                             </button>
                         </div>
 
+                        {/* Import Members */}
+                        <div className="space-y-4 pt-2 border-t border-border">
+                            <div className="flex items-center gap-2 text-muted-foreground">
+                                <UsersIcon className="w-5 h-5" />
+                                <span className="text-sm font-medium">เพิ่มสมาชิกจาก Line</span>
+                            </div>
+                            <div className="bg-card border border-border rounded-xl p-4 space-y-3">
+                                <p className="text-xs text-muted-foreground">วางข้อความเช็คชื่อจาก Line เพื่อค้นหาและเพิ่มสมาชิกอัตโนมัติ</p>
+                                <Textarea
+                                    placeholder="วางรายชื่อที่นี่..."
+                                    value={importText}
+                                    onChange={(e) => setImportText(e.target.value)}
+                                    className="bg-muted/30 min-h-[100px]"
+                                />
+                                <Button
+                                    onClick={handleImportMembers}
+                                    disabled={isImporting || !importText.trim()}
+                                    variant="outline"
+                                    className="w-full"
+                                >
+                                    {isImporting ? "กำลังค้นหาและเพิ่ม..." : "ค้นหาและเพิ่มสมาชิก"}
+                                </Button>
+                            </div>
+                        </div>
+
                         {/* Members Management */}
                         <div className="space-y-4">
                             <div className="flex items-center gap-2 text-muted-foreground">
@@ -677,7 +970,7 @@ export default function ManagePartyPage() {
                                 </div>
                             ) : (
                                 <div className="space-y-2">
-                                    {members.map((member) => {
+                                    {members.map((member, i) => {
                                         const isHost = member.user_id === party?.host_id;
                                         const displayName = member.profile?.display_name ||
                                             member.profile?.first_name ||
@@ -686,55 +979,91 @@ export default function ManagePartyPage() {
 
                                         return (
                                             <div
-                                                key={member.user_id}
-                                                className="flex items-center justify-between p-3 rounded-xl bg-card border border-border"
+                                                key={member.id || member.user_id || i} // Use DB ID if available
+                                                className="flex flex-col p-3 rounded-xl bg-card border border-border gap-3"
                                             >
-                                                <div className="flex items-center gap-3">
-                                                    <div className="relative">
-                                                        {member.profile?.avatar_url ? (
-                                                            <Image
-                                                                src={member.profile.avatar_url}
-                                                                alt={displayName}
-                                                                width={40}
-                                                                height={40}
-                                                                className="rounded-full object-cover"
-                                                            />
-                                                        ) : (
-                                                            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                                                                <span className="text-primary font-bold">
-                                                                    {displayName.charAt(0)}
-                                                                </span>
-                                                            </div>
-                                                        )}
-                                                        {isHost && (
-                                                            <div className="absolute -top-1 -right-1 w-5 h-5 bg-accent-gold rounded-full flex items-center justify-center">
-                                                                <span className="text-xs">👑</span>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                    <div>
-                                                        <div className="flex items-center gap-2">
-                                                            <span className="font-medium">{displayName}</span>
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="relative">
+                                                            {member.profile?.avatar_url ? (
+                                                                <Image
+                                                                    src={member.profile.avatar_url}
+                                                                    alt={displayName}
+                                                                    width={40}
+                                                                    height={40}
+                                                                    className="rounded-full object-cover"
+                                                                />
+                                                            ) : (
+                                                                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                                                                    <span className="text-primary font-bold">
+                                                                        {displayName.charAt(0)}
+                                                                    </span>
+                                                                </div>
+                                                            )}
                                                             {isHost && (
-                                                                <span className="text-xs bg-accent-gold/20 text-accent-gold px-2 py-0.5 rounded">
-                                                                    เจ้าของก๊วน
-                                                                </span>
+                                                                <div className="absolute -top-1 -right-1 w-5 h-5 bg-accent-gold rounded-full flex items-center justify-center">
+                                                                    <span className="text-xs">👑</span>
+                                                                </div>
                                                             )}
                                                         </div>
-                                                        <span className="text-xs text-muted-foreground">
-                                                            #{shortId}
-                                                        </span>
+                                                        <div>
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="font-medium">{displayName}</span>
+                                                                {isHost && (
+                                                                    <span className="text-xs bg-accent-gold/20 text-accent-gold px-2 py-0.5 rounded">
+                                                                        เจ้าของก๊วน
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                            <span className="text-xs text-muted-foreground">
+                                                                {shortId === 'GUEST' ? (
+                                                                    <button
+                                                                        onClick={() => handleLinkGuest(member.id, displayName)}
+                                                                        className="flex items-center gap-1 text-orange-500 hover:underline bg-orange-500/10 px-1.5 py-0.5 rounded"
+                                                                    >
+                                                                        <span>#GUEST</span>
+                                                                        <Icons.link className="w-3 h-3" />
+                                                                    </button>
+                                                                ) : (
+                                                                    <span>#{shortId}</span>
+                                                                )}
+                                                            </span>
+                                                        </div>
                                                     </div>
+
+                                                    {!isHost && (
+                                                        <button
+                                                            onClick={() => {
+                                                                // Pass ID (PK) correctly
+                                                                handleRemoveMember(member.id, displayName);
+                                                            }}
+                                                            className="p-2 text-destructive hover:bg-destructive/10 rounded-lg transition-colors tap-highlight"
+                                                        >
+                                                            <Icons.trash className="w-5 h-5" />
+                                                        </button>
+                                                    )}
                                                 </div>
 
-                                                {!isHost && (
-                                                    <button
-                                                        onClick={() => handleRemoveMember(member.user_id, displayName)}
-                                                        className="p-2 text-destructive hover:bg-destructive/10 rounded-lg transition-colors tap-highlight"
-                                                    >
-                                                        <Icons.trash className="w-5 h-5" />
-                                                    </button>
-                                                )}
+                                                {/* Level Selector */}
+                                                <div className="flex items-center gap-2 pl-[52px]">
+                                                    <span className="text-xs text-muted-foreground">ระดับ:</span>
+                                                    <div className="flex bg-muted/50 rounded-lg p-1 gap-1">
+                                                        {partyLevelOptions.map((opt) => (
+                                                            <button
+                                                                key={opt.id}
+                                                                onClick={() => handleUpdateMemberLevelById(member.id, opt.id)}
+                                                                className={cn(
+                                                                    "px-3 py-1 rounded text-xs font-medium transition-all",
+                                                                    member.skill_level === opt.id
+                                                                        ? opt.color + " shadow-sm ring-1 ring-inset ring-black/5"
+                                                                        : "text-muted-foreground hover:bg-white/50"
+                                                                )}
+                                                            >
+                                                                {opt.label}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                </div>
                                             </div>
                                         );
                                     })}

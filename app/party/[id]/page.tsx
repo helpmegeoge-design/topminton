@@ -27,6 +27,7 @@ export default function PartyDetailPage() {
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [isJoining, setIsJoining] = useState(false);
   const [unreadChatCount, setUnreadChatCount] = useState(0);
+  const [competitionStatus, setCompetitionStatus] = useState<'active' | 'inactive'>('inactive');
 
   useEffect(() => {
     const fetchData = async () => {
@@ -66,6 +67,19 @@ export default function PartyDetailPage() {
         console.error("Error fetching members:", membersError);
       }
 
+      // Self-Healing: Check if current_players matches actual members count
+      const realCount = membersData ? membersData.length : 0;
+      if (partyData && partyData.current_players !== realCount) {
+        console.log(`Fixing party count mismatch: ${partyData.current_players} -> ${realCount}`);
+        await supabase
+          .from('parties')
+          .update({ current_players: realCount })
+          .eq('id', id);
+
+        // Update local state to reflect accurate count immediatey
+        partyData.current_players = realCount;
+      }
+
       const membersList = membersData || [];
       const hostId = partyData?.host_id;
 
@@ -73,30 +87,53 @@ export default function PartyDetailPage() {
       const hostMember = membersList.find((m: any) => m.user_id === hostId);
 
       if (hostId && !hostMember) {
-        // Host not in party_members, add them with default 'paid' status
-        membersList.unshift({
-          user_id: hostId,
-          party_id: id,
-          status: 'joined',
-          payment_status: 'paid',
-        });
+        // Do not force add host if they are not in party_members (meaning they toggled off playing)
+        // Host is already shown in the Host Info card.
       }
 
       let membersWithProfiles = [];
       if (membersList.length > 0) {
         // Manually fetch profiles
-        const userIds = membersList.map((m: any) => m.user_id);
-        const { data: profiles } = await supabase
+        const userIds = membersList
+          .map((m: any) => m.user_id)
+          .filter((id: any) => id); // Filter out nulls/undefined/empty strings
+
+        const { data: profiles, error: profileError } = await supabase
           .from('profiles')
           .select('*')
           .in('id', userIds);
 
+        if (profileError) {
+          console.error("Error fetching profiles:", profileError);
+        }
+
         membersWithProfiles = membersList.map((m: any) => {
-          const profile = profiles?.find((p: any) => p.id === m.user_id);
-          return {
-            ...m,
-            user: profile || { first_name: 'Unknown', id: m.user_id } // Fallback
-          };
+          if (m.user_id) {
+            // Try to find in fetched profiles, OR use party.host if it's the host
+            let profile = profiles?.find((p: any) => p.id === m.user_id);
+
+            // Fallback: If this is the host, use the host data we already fetched in step 1
+            if (!profile && m.user_id === hostId && partyData.host) {
+              profile = partyData.host;
+            }
+
+            return {
+              ...m,
+              user: profile || { first_name: 'Unknown', id: m.user_id }
+            };
+          } else {
+            // Guest logic
+            return {
+              ...m,
+              user: {
+                id: 'guest-' + m.id,
+                first_name: m.guest_name || 'Guest',
+                display_name: m.guest_name || 'Guest',
+                avatar_url: null,
+                short_id: 'GUEST'
+              }
+            };
+          }
         });
       }
 
@@ -105,6 +142,16 @@ export default function PartyDetailPage() {
         ...partyData,
         members: membersWithProfiles || []
       });
+
+      // 3. Fetch Competition Status
+      const { data: compRoom } = await supabase
+        .from('competition_rooms')
+        .select('status')
+        .eq('party_id', id)
+        .eq('status', 'active')
+        .maybeSingle();
+
+      setCompetitionStatus(compRoom ? 'active' : 'inactive');
 
       // Fetch unread chat count
       if (user?.id) {
@@ -145,6 +192,22 @@ export default function PartyDetailPage() {
                   p_user_id: user.id
                 });
                 if (data !== null) setUnreadChatCount(data);
+              }
+            }
+          )
+          .subscribe();
+
+        // Subscribe to competition status changes
+        const compChannel = supabase
+          .channel(`competition_status:${id}`)
+          .on(
+            'postgres_changes',
+            { event: '*', schema: 'public', table: 'competition_rooms', filter: `party_id=eq.${id}` },
+            (payload: any) => {
+              if (payload.new && payload.new.status === 'active') {
+                setCompetitionStatus('active');
+              } else {
+                setCompetitionStatus('inactive');
               }
             }
           )
@@ -485,25 +548,59 @@ export default function PartyDetailPage() {
             </div>
           </GlassCard>
 
-          {/* Match Results Quick Link */}
-          <GlassCard className="p-4 bg-primary/5 border-primary/20">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                  <Icons.trophy className="w-5 h-5 text-primary" />
+          {/* Matchmaking Section */}
+          <Link href={`/party/${id}/competition/active`}>
+            <GlassCard className={cn(
+              "p-4 overflow-hidden relative transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]",
+              competitionStatus === 'active'
+                ? "border-green-500/50 bg-gradient-to-br from-green-500/10 via-background to-background shadow-[0_0_20px_-5px_rgba(34,197,94,0.3)]"
+                : "border-primary/20 bg-gradient-to-br from-primary/5 via-background to-background"
+            )}>
+              <div className="flex items-center justify-between relative z-10">
+                <div className="flex items-center gap-4">
+                  <div className={cn(
+                    "w-12 h-12 rounded-2xl flex items-center justify-center transition-colors",
+                    competitionStatus === 'active' ? "bg-green-500/20 text-green-500" : "bg-primary/20 text-primary"
+                  )}>
+                    <Icons.trophy className={cn("w-6 h-6", competitionStatus === 'active' && "animate-pulse")} />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <p className="font-bold text-lg tracking-tight">MATCHMAKING</p>
+                      {competitionStatus === 'active' ? (
+                        <Badge className="bg-green-500 hover:bg-green-600 text-[10px] h-5 px-1.5 animation-pulse border-0">
+                          กำลังแข่งขัน (LIVE)
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-[10px] h-5 px-1.5 text-muted-foreground border-border bg-background/50">
+                          รอเริ่มระบบ
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {competitionStatus === 'active'
+                        ? "กดเพื่อดูตารางการแข่งขันและคิวปัจจุบัน"
+                        : "ระบบจัดทีม แบ่งคู่ และบันทึกผลอัตโนมัติ"
+                      }
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <p className="font-semibold">ผลการจับคู่แข่งขัน</p>
-                  <p className="text-xs text-muted-foreground">ดูคะแนนและอันดับผู้เล่นวันนี้</p>
+
+                <div className={cn(
+                  "w-8 h-8 rounded-full flex items-center justify-center transition-all",
+                  competitionStatus === 'active' ? "bg-green-500/10 text-green-500" : "bg-white/5 text-muted-foreground"
+                )}>
+                  <Icons.chevronRight className="w-5 h-5" />
                 </div>
               </div>
-              <Button variant="ghost" size="sm" className="text-primary hover:bg-primary/10" asChild>
-                <Link href={`/party/${id}/results`}>
-                  ดูผล <Icons.chevronRight className="w-4 h-4 ml-1" />
-                </Link>
-              </Button>
-            </div>
-          </GlassCard>
+
+              {/* Background Decorative Element */}
+              <div className={cn(
+                "absolute -top-6 -right-6 w-24 h-24 rounded-full blur-2xl transition-colors",
+                competitionStatus === 'active' ? "bg-green-500/10" : "bg-primary/5"
+              )} />
+            </GlassCard>
+          </Link>
 
           {/* Participants */}
           <GlassCard className="p-4">
@@ -547,8 +644,9 @@ export default function PartyDetailPage() {
                       </div>
                     </div>
 
-                    {/* Message Button - After ID, with border */}
-                    {currentUser?.id !== member.user.id && (
+
+                    {/* Message Button - Only for Real Users */}
+                    {currentUser?.id !== member.user.id && member.user.id && !member.user.id.startsWith('guest-') && (
                       <button
                         onClick={() => router.push(`/messages/${member.user.id}`)}
                         className="p-2 text-primary border border-primary/30 rounded-lg hover:bg-primary/10 transition-colors shrink-0"
@@ -558,10 +656,10 @@ export default function PartyDetailPage() {
                       </button>
                     )}
 
-                    {/* Level Badge - Far Right */}
-                    {member.user.skill_level && (
+                    {/* Level Badge - Prioritize Party Level -> Profile Level */}
+                    {(member.skill_level || member.user.skill_level) && (
                       <div className="shrink-0">
-                        <LevelBadge level={member.user.skill_level} size="sm" />
+                        <LevelBadge level={member.skill_level || member.user.skill_level} size="sm" />
                       </div>
                     )}
                   </div>
@@ -624,6 +722,8 @@ export default function PartyDetailPage() {
                 "กำลังดำเนินการ..."
               ) : isJoined ? (
                 <>ออกจากก๊วน</>
+              ) : spotsLeft <= 0 ? (
+                <>ก๊วนเต็ม</>
               ) : (
                 <>
                   <Icons.plus className="w-5 h-5 mr-2" />
