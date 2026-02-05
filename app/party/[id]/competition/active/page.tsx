@@ -38,6 +38,7 @@ type Match = {
 
 type Court = {
     id: number;
+    name?: string;
     currentMatch: Match | null;
 };
 
@@ -97,6 +98,10 @@ export default function ActiveCompetitionPage() {
     const [score1, setScore1] = useState("");
     const [score2, setScore2] = useState("");
 
+    // Court Name Edit State
+    const [editingCourtId, setEditingCourtId] = useState<number | null>(null);
+    const [tempCourtName, setTempCourtName] = useState("");
+
     // --- Persistence Logic ---
     const updateRemoteState = async (newCourts: Court[], newQueue: Player[]) => {
         if (!isHost || !roomId) return;
@@ -131,6 +136,15 @@ export default function ActiveCompetitionPage() {
         const shuffled = [...queue].sort(() => 0.5 - Math.random());
         setQueue(shuffled);
         updateRemoteState(courts, shuffled);
+    };
+
+    const saveCourtName = (courtId: number) => {
+        const newCourts = courts.map(c =>
+            c.id === courtId ? { ...c, name: tempCourtName } : c
+        );
+        setCourts(newCourts);
+        setEditingCourtId(null);
+        updateRemoteState(newCourts, queue);
     };
 
     const [isAddGuestOpen, setIsAddGuestOpen] = useState(false);
@@ -937,11 +951,35 @@ export default function ActiveCompetitionPage() {
                             )}>
                                 {/* Court Header */}
                                 <div className="bg-white/5 backdrop-blur-md px-4 py-3 flex justify-between items-center border-b border-white/5">
-                                    <h3 className="font-bold flex items-center gap-2 text-primary tracking-wide text-sm">
-                                        <div className="w-7 h-7 rounded-md bg-primary/20 flex items-center justify-center">
+                                    <h3 className="font-bold flex items-center gap-2 text-primary tracking-wide text-sm flex-1 min-w-0">
+                                        <div className="w-7 h-7 rounded-md bg-primary/20 flex items-center justify-center shrink-0">
                                             <Icons.mapPin className="w-3.5 h-3.5" />
                                         </div>
-                                        คอร์ท {court.id}
+                                        {isHost ? (
+                                            editingCourtId === court.id ? (
+                                                <input
+                                                    autoFocus
+                                                    className="bg-primary/20 border-none text-primary font-bold w-full max-w-[120px] px-2 py-0.5 rounded focus:outline-none focus:ring-1 focus:ring-primary text-sm"
+                                                    value={tempCourtName}
+                                                    onChange={e => setTempCourtName(e.target.value)}
+                                                    onBlur={() => saveCourtName(court.id)}
+                                                    onKeyDown={e => e.key === 'Enter' && saveCourtName(court.id)}
+                                                />
+                                            ) : (
+                                                <span
+                                                    className="cursor-pointer hover:text-primary/80 transition-colors flex items-center gap-1.5 truncate"
+                                                    onClick={() => {
+                                                        setEditingCourtId(court.id);
+                                                        setTempCourtName(court.name || `คอร์ท ${court.id}`);
+                                                    }}
+                                                >
+                                                    {court.name || `คอร์ท ${court.id}`}
+                                                    <Icons.edit className="w-3 h-3 opacity-40 shrink-0" />
+                                                </span>
+                                            )
+                                        ) : (
+                                            <span className="truncate">{court.name || `คอร์ท ${court.id}`}</span>
+                                        )}
                                     </h3>
                                     {match ? (
                                         <div className={cn(
