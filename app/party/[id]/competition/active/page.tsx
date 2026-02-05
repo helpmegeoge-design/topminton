@@ -798,33 +798,30 @@ export default function ActiveCompetitionPage() {
                     <button onClick={() => router.back()} className="p-2 -ml-2 text-muted-foreground hover:text-white transition-colors">
                         <Icons.chevronLeft className="w-6 h-6" />
                     </button>
-                    <div className="flex flex-col items-center">
-                        <h1 className="font-bold text-xl tracking-tight flex items-center gap-2">
+                    <div className="flex flex-col items-center flex-1 min-w-0 px-2">
+                        <h1 className="font-bold text-base sm:text-xl tracking-tight flex items-center gap-2 truncate w-full justify-center">
                             การแข่งขัน
                             {roomId && (
-                                <Badge variant="secondary" className="h-4 text-[8px] bg-green-500/10 text-green-500 border-green-500/20 px-1 py-0 animation-pulse">
-                                    LIVE SYNC
+                                <Badge variant="secondary" className="h-4 text-[7px] sm:text-[8px] bg-green-500/10 text-green-500 border-green-500/20 px-1 py-0 animation-pulse shrink-0">
+                                    LIVE
                                 </Badge>
                             )}
                         </h1>
-                        <p className="text-xs text-muted-foreground font-medium flex items-center gap-1.5 mt-0.5">
-                            <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary/80" />
-                            เปิดอยู่ {courtCount} คอร์ท
-                            <span className="text-muted-foreground/30 mx-1">|</span>
+                        <p className="text-[10px] sm:text-xs text-muted-foreground font-medium flex items-center gap-1 mt-0.5 truncate">
+                            {courtCount} คอร์ท
+                            <span className="text-muted-foreground/30 mx-0.5">|</span>
                             {isHost ? (
                                 <span className="flex items-center gap-1 text-primary">
-                                    <Icons.settings className="w-2.5 h-2.5" />
                                     HOST
-                                </span>
+                                </span >
                             ) : (
                                 <span className="flex items-center gap-1">
-                                    <Icons.eye className="w-2.5 h-2.5" />
-                                    รับชม
+                                    VIEW
                                 </span>
                             )}
                         </p>
                     </div>
-                    <div className="flex-1 flex justify-end">
+                    <div className="flex items-center justify-end shrink-0">
                         {isHost && (
                             !roomId ? (
                                 <Button
@@ -833,24 +830,26 @@ export default function ActiveCompetitionPage() {
                                     className="bg-green-600 hover:bg-green-500 text-white font-bold h-9 rounded-xl px-4 text-xs shadow-lg shadow-green-900/40 border-0 flex items-center gap-2 transition-all active:scale-95"
                                 >
                                     {isToggling ? (
-                                        <Icons.loader className="w-3.5 h-3.5 animate-spin" />
+                                        <Icons.loader className="w-3 h-3 animate-spin" />
                                     ) : (
-                                        <Icons.play className="w-3.5 h-3.5 fill-current" />
+                                        <Icons.play className="w-3 h-3 fill-current" />
                                     )}
-                                    เริ่มระบบ Matchmaking
+                                    <span className="hidden xs:inline">เริ่ม Matchmaking</span>
+                                    <span className="xs:hidden">เริ่ม</span>
                                 </Button>
                             ) : (
                                 <Button
                                     onClick={handleStopSession}
                                     disabled={isToggling}
-                                    className="bg-red-600 hover:bg-red-500 text-white font-bold h-9 rounded-xl px-4 text-xs shadow-lg shadow-red-900/40 border-0 flex items-center gap-2 transition-all active:scale-95 group"
+                                    className="bg-red-600 hover:bg-red-500 text-white font-bold h-8 sm:h-9 rounded-xl px-2 sm:px-4 text-[10px] sm:text-xs shadow-lg shadow-red-900/40 border-0 flex items-center gap-1.5 transition-all active:scale-95 group"
                                 >
                                     {isToggling ? (
-                                        <Icons.loader className="w-3.5 h-3.5 animate-spin" />
+                                        <Icons.loader className="w-3 h-3 animate-spin" />
                                     ) : (
-                                        <Icons.trash className="w-3.5 h-3.5 group-hover:fill-current" />
+                                        <Icons.trash className="w-3 h-3 group-hover:fill-current" />
                                     )}
-                                    กำลังใช้ระบบ Matchmaking
+                                    <span className="hidden xs:inline">ระบบ Matchmaking</span>
+                                    <span className="xs:hidden">เปิดอยู่</span>
                                 </Button>
                             )
                         )}
@@ -923,7 +922,7 @@ export default function ActiveCompetitionPage() {
                 )}
 
                 {/* Courts Grid */}
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
                     {courts.map(court => {
                         const match = court.currentMatch;
                         const isPlaying = match?.status === 'playing';
@@ -1183,7 +1182,7 @@ export default function ActiveCompetitionPage() {
                             </p>
                         </div>
                     ) : (
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
                             {/* Display sorted queue (Excluding top 4) - Grid View is better for Mobile often if cards are small */}
                             {[...queue].sort((a, b) => {
                                 if (a.roundsPlayed !== b.roundsPlayed) return a.roundsPlayed - b.roundsPlayed;
