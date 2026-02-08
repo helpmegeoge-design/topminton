@@ -34,39 +34,65 @@ export default function CompetitionRankingPage() {
             const supabase = createClient();
             if (!supabase) return;
 
+            // 1. Fetch Party Members first to have a baseline of everyone in the group
+            const { data: members } = await supabase
+                .from('party_members')
+                .select(`
+                    id,
+                    skill_level,
+                    guest_name,
+                    user:profiles!user_id(id, display_name, first_name, avatar_url, skill_level)
+                `)
+                .eq('party_id', id);
+
+            // 2. Fetch the latest room state (regardless of active status)
             const { data: rooms } = await supabase
                 .from('competition_rooms')
                 .select('*')
                 .eq('party_id', id)
-                .eq('status', 'active')
-                .order('created_at', { ascending: false });
+                .order('created_at', { ascending: false })
+                .limit(1);
 
-            const activeRoom = rooms?.[0];
+            const latestRoom = rooms?.[0];
 
-            if (activeRoom && activeRoom.state) {
-                // Combine players from queue and active matches
-                const state = activeRoom.state;
-                const allPlayersMap = new Map<string, Player>();
+            if (members) {
+                const mappedPlayers: Player[] = members.map((m: any) => {
+                    let roundsPlayed = 0;
+                    let wins = 0;
 
-                if (state.queue) {
-                    state.queue.forEach((p: Player) => {
-                        allPlayersMap.set(p.id, p);
-                    });
-                }
+                    // Try to find this player's stats in the latest room state
+                    if (latestRoom && latestRoom.state) {
+                        const state = latestRoom.state;
+                        let foundPlayer = state.queue?.find((p: any) => p.id === m.id);
 
-                if (state.courts) {
-                    state.courts.forEach((c: any) => {
-                        if (c.currentMatch) {
-                            [...c.currentMatch.team1, ...c.currentMatch.team2].forEach((p: Player) => {
-                                allPlayersMap.set(p.id, p);
+                        // Also check currently playing courts
+                        if (!foundPlayer && state.courts) {
+                            state.courts.forEach((c: any) => {
+                                if (c.currentMatch) {
+                                    const p = [...c.currentMatch.team1, ...c.currentMatch.team2].find((p: any) => p.id === m.id);
+                                    if (p) foundPlayer = p;
+                                }
                             });
                         }
-                    });
-                }
 
-                const allPlayers = Array.from(allPlayersMap.values());
+                        if (foundPlayer) {
+                            roundsPlayed = foundPlayer.roundsPlayed || 0;
+                            wins = foundPlayer.wins || 0;
+                        }
+                    }
+
+                    return {
+                        id: m.id,
+                        name: m.user ? (m.user.display_name || m.user.first_name) : (m.guest_name || "Guest"),
+                        avatar_url: m.user?.avatar_url || null,
+                        level: m.skill_level || m.user?.skill_level || "beginner",
+                        roundsPlayed,
+                        wins
+                    };
+                });
+
                 // Sort by wins (desc) then by roundsPlayed (desc)
-                const sorted = allPlayers.sort((a, b) => {
+                const sorted = mappedPlayers.sort((a, b) => {
                     if (b.wins !== a.wins) return b.wins - a.wins;
                     return b.roundsPlayed - a.roundsPlayed;
                 });
