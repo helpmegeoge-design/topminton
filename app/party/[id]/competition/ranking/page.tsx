@@ -28,44 +28,67 @@ export default function CompetitionRankingPage() {
 
     const [isLoading, setIsLoading] = useState(true);
     const [players, setPlayers] = useState<Player[]>([]);
+    const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
+        if (!id) return;
+
         const fetchRanking = async () => {
+            setIsLoading(true);
+            setError(null);
+
             const supabase = createClient();
-            if (!supabase) return;
+            if (!supabase) {
+                setError("Supabase client failed");
+                setIsLoading(false);
+                return;
+            }
 
-            // 1. Fetch Party Members first to have a baseline of everyone in the group
-            const { data: members } = await supabase
-                .from('party_members')
-                .select(`
-                    id,
-                    skill_level,
-                    guest_name,
-                    user:profiles!user_id(id, display_name, first_name, avatar_url, skill_level)
-                `)
-                .eq('party_id', id);
+            try {
+                // 1. Fetch Party Members (Baseline)
+                const { data: members, error: memError } = await supabase
+                    .from('party_members')
+                    .select(`
+                        id,
+                        skill_level,
+                        guest_name,
+                        user:profiles!user_id(id, display_name, first_name, avatar_url, skill_level)
+                    `)
+                    .eq('party_id', id);
 
-            // 2. Fetch the latest room state (regardless of active status)
-            const { data: rooms } = await supabase
-                .from('competition_rooms')
-                .select('*')
-                .eq('party_id', id)
-                .order('created_at', { ascending: false })
-                .limit(1);
+                if (memError) {
+                    setError("Failed to fetch members: " + memError.message);
+                    setIsLoading(false);
+                    return;
+                }
 
-            const latestRoom = rooms?.[0];
+                if (!members || members.length === 0) {
+                    setError("ยังไม่มีรายชื่อสมาชิกในก๊วนนี้ (No members found)");
+                    setIsLoading(false);
+                    return;
+                }
 
-            if (members) {
+                // 2. Fetch the latest room state
+                const { data: rooms } = await supabase
+                    .from('competition_rooms')
+                    .select('*')
+                    .eq('party_id', id)
+                    .order('created_at', { ascending: false })
+                    .limit(1);
+
+                const latestRoom = rooms?.[0];
+
                 const mappedPlayers: Player[] = members.map((m: any) => {
                     let roundsPlayed = 0;
                     let wins = 0;
 
-                    // Try to find this player's stats in the latest room state
                     if (latestRoom && latestRoom.state) {
                         const state = latestRoom.state;
+
+                        // Check queue
                         let foundPlayer = state.queue?.find((p: any) => p.id === m.id);
 
-                        // Also check currently playing courts
+                        // Check courts
                         if (!foundPlayer && state.courts) {
                             state.courts.forEach((c: any) => {
                                 if (c.currentMatch) {
@@ -98,11 +121,14 @@ export default function CompetitionRankingPage() {
                 });
 
                 setPlayers(sorted);
+            } catch (err: any) {
+                setError("Unexpected error: " + err.message);
+            } finally {
+                setIsLoading(false);
             }
-            setIsLoading(false);
         };
 
-        if (id) fetchRanking();
+        fetchRanking();
     }, [id]);
 
     const getLevelColor = (level: string) => {
@@ -115,8 +141,9 @@ export default function CompetitionRankingPage() {
     if (isLoading) {
         return (
             <AppShell hideNav>
-                <div className="flex flex-col items-center justify-center min-h-[60vh]">
+                <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
                     <LoadingShuttlecock />
+                    <p className="text-white/40 text-sm animate-pulse">กำลังประมวลผลอันดับ...</p>
                 </div>
             </AppShell>
         );
@@ -133,7 +160,14 @@ export default function CompetitionRankingPage() {
                         </button>
                         <h1 className="font-bold text-lg text-white">อันดับการแข่งขัน</h1>
                     </div>
-                    <Icons.gift className="w-5 h-5 text-primary" />
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => window.location.reload()}
+                        className="text-white/40 hover:text-white"
+                    >
+                        <Icons.refresh className="w-4 h-4" />
+                    </Button>
                 </div>
             </div>
 
@@ -147,21 +181,35 @@ export default function CompetitionRankingPage() {
                     <p className="text-muted-foreground text-sm uppercase tracking-widest font-bold opacity-60">สรุปคะแนนผู้ชนะ</p>
                 </div>
 
-                {/* Top 3 Podium (Optional but cool) */}
-                {players.length >= 3 && (
+                {error && (
+                    <div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-500 text-center text-sm">
+                        {error}
+                    </div>
+                )}
+
+                {!error && players.length === 0 && (
+                    <div className="text-center py-12 text-muted-foreground italic">
+                        ไม่พบข้อมูลสมาชิก
+                    </div>
+                )}
+
+                {/* Top 3 Podium */}
+                {!error && players.length >= 1 && (
                     <div className="flex items-end justify-center gap-4 py-8 px-2">
                         {/* 2nd Place */}
-                        <div className="flex flex-col items-center gap-2">
-                            <div className="relative">
-                                <Image src={players[1].avatar_url || "/placeholder.svg"} alt="" width={60} height={60} className="rounded-full border-4 border-[#C0C0C0] shadow-lg" />
-                                <div className="absolute -top-2 -right-2 bg-[#C0C0C0] text-black text-[10px] font-black w-6 h-6 rounded-full flex items-center justify-center">2</div>
+                        {players.length >= 2 && (
+                            <div className="flex flex-col items-center gap-2">
+                                <div className="relative">
+                                    <Image src={players[1].avatar_url || "/placeholder.svg"} alt="" width={60} height={60} className="rounded-full border-4 border-[#C0C0C0] shadow-lg" />
+                                    <div className="absolute -top-2 -right-2 bg-[#C0C0C0] text-black text-[10px] font-black w-6 h-6 rounded-full flex items-center justify-center">2</div>
+                                </div>
+                                <span className="font-bold text-xs text-white/80 truncate w-16 text-center">{players[1].name}</span>
+                                <div className="h-20 w-16 bg-white/5 rounded-t-xl flex flex-col items-center justify-center border-x border-t border-white/10">
+                                    <span className="font-black text-white">{players[1].wins}</span>
+                                    <span className="text-[8px] text-muted-foreground uppercase">Wins</span>
+                                </div>
                             </div>
-                            <span className="font-bold text-xs text-white/80 truncate w-16 text-center">{players[1].name}</span>
-                            <div className="h-20 w-16 bg-white/5 rounded-t-xl flex flex-col items-center justify-center border-x border-t border-white/10">
-                                <span className="font-black text-white">{players[1].wins}</span>
-                                <span className="text-[8px] text-muted-foreground uppercase">Wins</span>
-                            </div>
-                        </div>
+                        )}
 
                         {/* 1st Place */}
                         <div className="flex flex-col items-center gap-2">
@@ -178,57 +226,61 @@ export default function CompetitionRankingPage() {
                         </div>
 
                         {/* 3rd Place */}
-                        <div className="flex flex-col items-center gap-2">
-                            <div className="relative">
-                                <Image src={players[2].avatar_url || "/placeholder.svg"} alt="" width={60} height={60} className="rounded-full border-4 border-[#CD7F32] shadow-lg" />
-                                <div className="absolute -top-2 -right-2 bg-[#CD7F32] text-black text-[10px] font-black w-6 h-6 rounded-full flex items-center justify-center">3</div>
+                        {players.length >= 3 && (
+                            <div className="flex flex-col items-center gap-2">
+                                <div className="relative">
+                                    <Image src={players[2].avatar_url || "/placeholder.svg"} alt="" width={60} height={60} className="rounded-full border-4 border-[#CD7F32] shadow-lg" />
+                                    <div className="absolute -top-2 -right-2 bg-[#CD7F32] text-black text-[10px] font-black w-6 h-6 rounded-full flex items-center justify-center">3</div>
+                                </div>
+                                <span className="font-bold text-xs text-white/80 truncate w-16 text-center">{players[2].name}</span>
+                                <div className="h-16 w-16 bg-white/5 rounded-t-xl flex flex-col items-center justify-center border-x border-t border-white/10">
+                                    <span className="font-black text-white">{players[2].wins}</span>
+                                    <span className="text-[8px] text-muted-foreground uppercase">Wins</span>
+                                </div>
                             </div>
-                            <span className="font-bold text-xs text-white/80 truncate w-16 text-center">{players[2].name}</span>
-                            <div className="h-16 w-16 bg-white/5 rounded-t-xl flex flex-col items-center justify-center border-x border-t border-white/10">
-                                <span className="font-black text-white">{players[2].wins}</span>
-                                <span className="text-[8px] text-muted-foreground uppercase">Wins</span>
-                            </div>
-                        </div>
+                        )}
                     </div>
                 )}
 
                 {/* Full Ranking List */}
-                <div className="space-y-2.5">
-                    {players.map((p, i) => (
-                        <GlassCard key={p.id} className={cn(
-                            "p-3 flex items-center justify-between border-white/5",
-                            i === 0 ? "bg-primary/5 border-primary/20" : ""
-                        )}>
-                            <div className="flex items-center gap-4">
-                                <div className="w-6 text-center font-black text-muted-foreground italic">
-                                    {i + 1}
+                {!error && (
+                    <div className="space-y-2.5">
+                        {players.map((p, i) => (
+                            <GlassCard key={p.id} className={cn(
+                                "p-3 flex items-center justify-between border-white/5",
+                                i === 0 ? "bg-primary/5 border-primary/20" : ""
+                            )}>
+                                <div className="flex items-center gap-4">
+                                    <div className="w-6 text-center font-black text-muted-foreground italic">
+                                        {i + 1}
+                                    </div>
+                                    <div className="relative">
+                                        <Image src={p.avatar_url || "/placeholder.svg"} alt="" width={44} height={44} className="rounded-full bg-muted shadow-inner" />
+                                        <div className={cn("absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-[#1a1b1e]", getLevelColor(p.level))} />
+                                    </div>
+                                    <div className="flex flex-col">
+                                        <span className={cn("font-bold text-sm", i === 0 ? "text-primary" : "text-white")}>
+                                            {p.name}
+                                        </span>
+                                        <span className="text-[10px] text-muted-foreground italic uppercase">
+                                            เล่นไป {p.roundsPlayed} รอบ
+                                        </span>
+                                    </div>
                                 </div>
-                                <div className="relative">
-                                    <Image src={p.avatar_url || "/placeholder.svg"} alt="" width={44} height={44} className="rounded-full bg-muted shadow-inner" />
-                                    <div className={cn("absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-[#1a1b1e]", getLevelColor(p.level))} />
-                                </div>
-                                <div className="flex flex-col">
-                                    <span className={cn("font-bold text-sm", i === 0 ? "text-primary" : "text-white")}>
-                                        {p.name}
-                                    </span>
-                                    <span className="text-[10px] text-muted-foreground italic uppercase">
-                                        เล่นไป {p.roundsPlayed} รอบ
-                                    </span>
-                                </div>
-                            </div>
 
-                            <div className="flex flex-col items-end">
-                                <div className="flex items-baseline gap-1">
-                                    <span className="text-xl font-black text-white tracking-tighter">{p.wins}</span>
-                                    <span className="text-[10px] font-black text-muted-foreground uppercase tracking-wider">WINS</span>
+                                <div className="flex flex-col items-end">
+                                    <div className="flex items-baseline gap-1">
+                                        <span className="text-xl font-black text-white tracking-tighter">{p.wins}</span>
+                                        <span className="text-[10px] font-black text-muted-foreground uppercase tracking-wider">WINS</span>
+                                    </div>
+                                    <div className="text-[8px] text-muted-foreground font-bold opacity-50">
+                                        WR: {p.roundsPlayed > 0 ? Math.round((p.wins / p.roundsPlayed) * 100) : 0}%
+                                    </div>
                                 </div>
-                                <div className="text-[8px] text-muted-foreground font-bold opacity-50">
-                                    WR: {p.roundsPlayed > 0 ? Math.round((p.wins / p.roundsPlayed) * 100) : 0}%
-                                </div>
-                            </div>
-                        </GlassCard>
-                    ))}
-                </div>
+                            </GlassCard>
+                        ))}
+                    </div>
+                )}
             </div>
 
             {/* Bottom Button */}
