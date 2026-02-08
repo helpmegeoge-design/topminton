@@ -846,7 +846,7 @@ export default function ActiveCompetitionPage() {
                             )}
                         </h1>
                         <p className="text-[10px] sm:text-xs text-muted-foreground font-medium flex items-center gap-1 mt-0.5 truncate">
-                            {courtCount} คอร์ท
+                            {courts.length} คอร์ท
                             <span className="text-muted-foreground/30 mx-0.5">|</span>
                             {isHost ? (
                                 <span className="flex items-center gap-1 text-primary">
