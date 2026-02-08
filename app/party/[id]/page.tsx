@@ -690,11 +690,21 @@ export default function PartyDetailPage() {
             </Link>
           </Button>
 
-          <Button variant="outline" size="lg" className="bg-transparent" asChild>
-            <Link href={`/party/${party.id}/bill`}>
-              <Icons.coins className="w-5 h-5 mr-2" />
-              คิดเงิน
-            </Link>
+          <Button
+            variant="outline"
+            size="lg"
+            className="bg-transparent"
+            onClick={() => {
+              const names = party.members.map((m: any) => m.user?.display_name || m.user?.first_name || "Guest");
+              const query = new URLSearchParams({
+                players: names.join(','),
+                fromParty: id
+              });
+              router.push(`/tools/cost-calculator?${query.toString()}`);
+            }}
+          >
+            <Icons.coins className="w-5 h-5 mr-2" />
+            คิดเงิน
           </Button>
 
           {currentUser?.id === party.host_id ? (

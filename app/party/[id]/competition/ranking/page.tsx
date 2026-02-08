@@ -167,12 +167,14 @@ export default function CompetitionRankingPage() {
     };
 
     const handleGoToBill = () => {
-        // Filter players who played at least 1 round
-        const activePlayerIds = players
-            .filter(p => p.roundsPlayed > 0)
-            .map(p => p.id);
+        // Use all players from the list
+        const allPlayerNames = players.map(p => p.name);
 
-        router.push(`/party/${id}/bill?players=${activePlayerIds.join(',')}`);
+        const query = new URLSearchParams({
+            players: allPlayerNames.join(','),
+            fromParty: id
+        });
+        router.push(`/tools/cost-calculator?${query.toString()}`);
     };
 
     const getLevelColor = (level: string) => {
@@ -340,8 +342,8 @@ export default function CompetitionRankingPage() {
                     )}
                     <Button
                         onClick={() => router.push(`/party/${id}`)}
-                        variant="outline"
-                        className="w-full h-12 bg-white/5 border-white/10 text-white font-bold rounded-xl"
+                        variant="ghost"
+                        className="w-full h-10 text-white/40 hover:text-white font-bold rounded-xl"
                     >
                         กลับไปหน้าก๊วน
                     </Button>

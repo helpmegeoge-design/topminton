@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import html2canvas from "html2canvas";
 import { AppShell } from "@/components/app-shell";
@@ -27,6 +28,7 @@ import { format } from "date-fns";
 import { th } from "date-fns/locale";
 
 export default function CostCalculatorPage() {
+    const searchParams = useSearchParams();
     const [courtPrice, setCourtPrice] = useState<string>("");
     const [shuttlePrice, setShuttlePrice] = useState<string>("");
     const [otherPrice, setOtherPrice] = useState<string>("");
@@ -90,6 +92,20 @@ export default function CostCalculatorPage() {
     // Mode Selection
     type CalculatorMode = 'menu' | 'standard' | 'simple';
     const [mode, setMode] = useState<CalculatorMode>('menu');
+
+    // Handle initial players from query params
+    useEffect(() => {
+        const playersParam = searchParams.get('players');
+        if (playersParam) {
+            const names = playersParam.split(',').map(n => n.trim()).filter(n => n);
+            if (names.length > 0) {
+                const formattedInput = names.join('\n');
+                setPlayerInput(formattedInput);
+                parsePlayerNames(formattedInput);
+                setMode('standard');
+            }
+        }
+    }, [searchParams]);
 
     // --- HISTORY & PERSISTENCE LOGIC ---
 
