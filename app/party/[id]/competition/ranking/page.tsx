@@ -29,6 +29,8 @@ export default function CompetitionRankingPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [players, setPlayers] = useState<Player[]>([]);
     const [error, setError] = useState<string | null>(null);
+    const [isHost, setIsHost] = useState(false);
+    const [isFinishing, setIsFinishing] = useState(false);
 
     useEffect(() => {
         if (!id) return;
@@ -45,7 +47,15 @@ export default function CompetitionRankingPage() {
             }
 
             try {
-                // 1. Fetch Party Members (Baseline - always do this)
+                // 1. Fetch Party & Current User (to check host status)
+                const { data: { user } } = await supabase.auth.getUser();
+                const { data: party } = await supabase.from('parties').select('host_id').eq('id', id).single();
+
+                if (party && user) {
+                    setIsHost(party.host_id === user.id);
+                }
+
+                // 2. Fetch Party Members
                 const { data: members, error: memError } = await supabase
                     .from('party_members')
                     .select(`
@@ -69,14 +79,13 @@ export default function CompetitionRankingPage() {
                     return;
                 }
 
-                // 2. Fetch all recent competition rooms for this party
-                // We fetch the latest 5 just in case there are multiple room entries
+                // 3. Fetch recent room state
                 const { data: rooms } = await supabase
                     .from('competition_rooms')
                     .select('*')
                     .eq('party_id', id)
                     .order('created_at', { ascending: false })
-                    .limit(5);
+                    .limit(1);
 
                 const latestRoom = rooms?.[0];
 
@@ -84,18 +93,15 @@ export default function CompetitionRankingPage() {
                     let totalRounds = 0;
                     let totalWins = 0;
 
-                    // Aggregate stats from the latest room state
                     if (latestRoom && latestRoom.state) {
                         const state = latestRoom.state;
 
-                        // Check queue
                         const inQueue = state.queue?.find((p: any) => p.id === m.id);
                         if (inQueue) {
                             totalRounds = Math.max(totalRounds, inQueue.roundsPlayed || 0);
                             totalWins = Math.max(totalWins, inQueue.wins || 0);
                         }
 
-                        // Check courts
                         if (state.courts) {
                             state.courts.forEach((c: any) => {
                                 if (c.currentMatch) {
@@ -119,7 +125,6 @@ export default function CompetitionRankingPage() {
                     };
                 });
 
-                // Sort by wins (desc) then by roundsPlayed (desc)
                 const sorted = mappedPlayers.sort((a, b) => {
                     if (b.wins !== a.wins) return b.wins - a.wins;
                     return b.roundsPlayed - a.roundsPlayed;
@@ -136,6 +141,39 @@ export default function CompetitionRankingPage() {
 
         fetchRanking();
     }, [id]);
+
+    const handleFinishCompetition = async () => {
+        if (!confirm("คุณต้องการสิ้นสุดการแข่งขันนี้ใช่หรือไม่? ข้อมูลการจัดทีมในสนามจะถูกรีเซ็ต")) return;
+
+        setIsFinishing(true);
+        const supabase = createClient();
+        if (!supabase) return;
+
+        try {
+            // Update all active competition rooms to finished
+            await supabase
+                .from('competition_rooms')
+                .update({ status: 'finished' })
+                .eq('party_id', id)
+                .eq('status', 'active');
+
+            router.push(`/party/${id}`);
+        } catch (err) {
+            console.error("Error finishing competition:", err);
+            alert("ไม่สามารถสิ้นสุดการแข่งขันได้");
+        } finally {
+            setIsFinishing(false);
+        }
+    };
+
+    const handleGoToBill = () => {
+        // Filter players who played at least 1 round
+        const activePlayerIds = players
+            .filter(p => p.roundsPlayed > 0)
+            .map(p => p.id);
+
+        router.push(`/party/${id}/bill?players=${activePlayerIds.join(',')}`);
+    };
 
     const getLevelColor = (level: string) => {
         const l = level?.toLowerCase() || '';
@@ -168,7 +206,7 @@ export default function CompetitionRankingPage() {
                 </div>
             </div>
 
-            <div className="p-4 space-y-6 pb-32">
+            <div className="p-4 space-y-6 pb-48">
                 <div className="text-center py-6 space-y-2">
                     <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 mb-4 animate-bounce">
                         <Icons.swords className="w-8 h-8 text-primary" />
@@ -187,16 +225,8 @@ export default function CompetitionRankingPage() {
                     </div>
                 )}
 
-                {!error && players.length === 0 && (
-                    <div className="text-center py-20 text-muted-foreground/40 italic">
-                        <Icons.users className="w-12 h-12 mx-auto mb-4 opacity-20" />
-                        ไม่พบข้อมูลสมาชิก
-                    </div>
-                )}
-
-                {!error && players.length > 0 && (
+                {players.length > 0 && (
                     <>
-                        {/* Podium Section */}
                         <div className="flex items-end justify-center gap-4 py-8 px-2">
                             {players.length >= 2 && (
                                 <div className="flex flex-col items-center gap-2">
@@ -240,12 +270,11 @@ export default function CompetitionRankingPage() {
                             )}
                         </div>
 
-                        {/* List Section */}
                         <div className="space-y-3">
                             {players.map((p, i) => (
                                 <GlassCard key={p.id} className={cn(
                                     "p-4 flex items-center justify-between border-white/5",
-                                    i === 0 ? "bg-primary/5 border-primary/20 ring-1 ring-primary/20 shadow-lg shadow-primary/5" : "bg-white/5"
+                                    i === 0 ? "bg-primary/5 border-primary/20 shadow-lg shadow-primary/5" : "bg-white/5"
                                 )}>
                                     <div className="flex items-center gap-4">
                                         <div className="w-6 text-center font-black text-muted-foreground italic text-lg pr-1">
@@ -281,13 +310,42 @@ export default function CompetitionRankingPage() {
                 )}
             </div>
 
+            {/* Bottom Panel */}
             <div className="fixed bottom-0 left-0 right-0 p-4 bg-background/80 backdrop-blur-xl border-t border-white/5 z-50 safe-area-bottom">
-                <Button
-                    onClick={() => router.push(`/party/${id}`)}
-                    className="w-full h-14 bg-white/5 hover:bg-white/10 text-white font-bold rounded-2xl border border-white/5 transition-all active:scale-[0.98]"
-                >
-                    กลับไปหน้าก๊วน
-                </Button>
+                <div className="flex flex-col gap-3">
+                    {isHost && (
+                        <div className="flex gap-3">
+                            <Button
+                                onClick={handleGoToBill}
+                                className="flex-1 h-14 bg-primary text-black font-black uppercase italic tracking-tighter rounded-2xl shadow-xl shadow-primary/10 transition-all active:scale-[0.98]"
+                            >
+                                <Icons.coins className="w-5 h-5 mr-2" />
+                                คิดเงิน (Settlement)
+                            </Button>
+                            <Button
+                                onClick={handleFinishCompetition}
+                                disabled={isFinishing}
+                                className="flex-1 h-14 bg-red-500/10 border border-red-500/20 text-red-500 font-black uppercase italic tracking-tighter rounded-2xl transition-all active:scale-[0.98]"
+                            >
+                                {isFinishing ? (
+                                    <Icons.spinner className="w-5 h-5 animate-spin" />
+                                ) : (
+                                    <>
+                                        <Icons.power className="w-5 h-5 mr-2" />
+                                        จบก๊วน
+                                    </>
+                                )}
+                            </Button>
+                        </div>
+                    )}
+                    <Button
+                        onClick={() => router.push(`/party/${id}`)}
+                        variant="outline"
+                        className="w-full h-12 bg-white/5 border-white/10 text-white font-bold rounded-xl"
+                    >
+                        กลับไปหน้าก๊วน
+                    </Button>
+                </div>
             </div>
         </AppShell>
     );
