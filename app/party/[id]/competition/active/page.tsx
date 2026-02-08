@@ -45,7 +45,8 @@ type Court = {
     currentMatch: Match | null;
 };
 
-type MatchmakingMode = 'random' | 'split_level' | 'balanced_mix' | 'double_rotation';
+type RotationMode = 'out_4' | 'out_2';
+type MatchmakingMode = 'random' | 'split_level' | 'balanced_mix';
 
 // --- Helpers ---
 const getLevelWeight = (level: string) => {
@@ -92,6 +93,7 @@ export default function ActiveCompetitionPage() {
     // Settings State
     const [settingsOpen, setSettingsOpen] = useState(false);
     const [matchmakingMode, setMatchmakingMode] = useState<MatchmakingMode>('random');
+    const [rotationMode, setRotationMode] = useState<RotationMode>('out_4');
 
     // Timer State
     const [now, setNow] = useState(Date.now());
@@ -113,7 +115,11 @@ export default function ActiveCompetitionPage() {
         await supabase
             .from('competition_rooms')
             .update({
-                state: { courts: newCourts, queue: newQueue },
+                state: {
+                    courts: newCourts,
+                    queue: newQueue,
+                    settings: { matchmakingMode, rotationMode }
+                },
                 updated_at: new Date().toISOString()
             })
             .eq('id', roomId);
@@ -140,6 +146,13 @@ export default function ActiveCompetitionPage() {
         setQueue(shuffled);
         updateRemoteState(courts, shuffled);
     };
+
+    // --- Settings Sync ---
+    useEffect(() => {
+        if (isHost && roomId) {
+            updateRemoteState(courts, queue);
+        }
+    }, [matchmakingMode, rotationMode]);
 
     const saveCourtName = (courtId: number) => {
         const newCourts = courts.map(c =>
@@ -227,6 +240,10 @@ export default function ActiveCompetitionPage() {
                 if (activeRoom.state && activeRoom.state.courts) {
                     setCourts(activeRoom.state.courts);
                     setQueue(activeRoom.state.queue || []);
+                    if (activeRoom.state.settings) {
+                        if (activeRoom.state.settings.matchmakingMode) setMatchmakingMode(activeRoom.state.settings.matchmakingMode);
+                        if (activeRoom.state.settings.rotationMode) setRotationMode(activeRoom.state.settings.rotationMode);
+                    }
                 } else if (userIsHost) {
                     await fetchPlayersOnly();
                 }
@@ -564,15 +581,12 @@ export default function ActiveCompetitionPage() {
                 p4 = pool.shift()!;
             }
 
-            const t1 = (matchmakingMode === 'split_level' || matchmakingMode === 'double_rotation') ? [p1, p2] : [p1, p4];
-            const t2 = (matchmakingMode === 'split_level' || matchmakingMode === 'double_rotation') ? [p3, p4] : [p2, p3];
-
             court.currentMatch = {
                 id: `match-${Date.now()}-${court.id}`,
                 courtId: court.id,
                 status: 'waiting',
-                team1: t1,
-                team2: t2,
+                team1: [p1, p4],
+                team2: [p2, p3],
                 team1Games: 0,
                 team2Games: 0
             };
@@ -787,7 +801,7 @@ export default function ActiveCompetitionPage() {
         const s2 = parseInt(score2 || "0");
         const team1Won = s1 > s2;
 
-        if (matchmakingMode === 'double_rotation') {
+        if (rotationMode === 'out_2') {
             const team1Played = match.team1Games || 0;
             const team2Played = match.team2Games || 0;
 
@@ -1140,7 +1154,7 @@ export default function ActiveCompetitionPage() {
 
                                                 {/* Team 1 */}
                                                 <div className="flex-1 flex flex-col items-start gap-2 min-w-0">
-                                                    {matchmakingMode === 'double_rotation' && (
+                                                    {rotationMode === 'out_2' && (
                                                         <div className="px-1.5 py-0.5 rounded bg-primary/10 text-[8px] font-bold text-primary uppercase tracking-tighter">
                                                             {match.team1Games === 1 ? 'เกมที่ 2' : 'เกมที่ 1'}
                                                         </div>
@@ -1167,7 +1181,7 @@ export default function ActiveCompetitionPage() {
 
                                                 {/* Team 2 */}
                                                 <div className="flex-1 flex flex-col items-end gap-2 min-w-0">
-                                                    {matchmakingMode === 'double_rotation' && (
+                                                    {rotationMode === 'out_2' && (
                                                         <div className="px-1.5 py-0.5 rounded bg-blue-500/10 text-[8px] font-bold text-blue-500 uppercase tracking-tighter">
                                                             {match.team2Games === 1 ? 'เกมที่ 2' : 'เกมที่ 1'}
                                                         </div>
@@ -1514,6 +1528,8 @@ export default function ActiveCompetitionPage() {
                 updateCourtCount={updateCourtCount}
                 matchmakingMode={matchmakingMode}
                 setMatchmakingMode={setMatchmakingMode}
+                rotationMode={rotationMode}
+                setRotationMode={setRotationMode}
                 handleAutoAssign={handleAutoAssign}
             />
         </AppShell>
@@ -1529,6 +1545,8 @@ function HostSettingsDialog({
     updateCourtCount,
     matchmakingMode,
     setMatchmakingMode,
+    rotationMode,
+    setRotationMode,
     handleAutoAssign
 }: {
     open: boolean,
@@ -1537,6 +1555,8 @@ function HostSettingsDialog({
     updateCourtCount: (n: number) => void,
     matchmakingMode: MatchmakingMode,
     setMatchmakingMode: (m: MatchmakingMode) => void,
+    rotationMode: RotationMode,
+    setRotationMode: (r: RotationMode) => void,
     handleAutoAssign: () => void
 }) {
     return (
@@ -1588,13 +1608,41 @@ function HostSettingsDialog({
                             </div>
                         </div>
 
-                        {/* Matchmaking Mode */}
+                        {/* Rotation Mode */}
+                        <div className="space-y-3">
+                            <Label className="text-sm font-bold text-white px-1">ระบบการวนคน (Rotation)</Label>
+                            <div className="grid grid-cols-2 gap-2.5">
+                                {[
+                                    { id: 'out_4', title: 'ออก 4 (All Change)', desc: 'จบเกมออกหมดทั้ง 4 คน', icon: Icons.users },
+                                    { id: 'out_2', title: 'ออก 2 (2-in-2-out)', desc: 'เล่น 2 เกมวน (ผู้ชนะอยู่ต่อเกมแรก)', icon: Icons.refresh },
+                                ].map((mode) => (
+                                    <button
+                                        key={mode.id}
+                                        onClick={() => setRotationMode(mode.id as RotationMode)}
+                                        className={cn(
+                                            "flex flex-col items-center gap-2 p-3 rounded-2xl border-2 transition-all text-center",
+                                            rotationMode === mode.id
+                                                ? "border-primary bg-primary/10"
+                                                : "border-white/5 bg-white/5 hover:bg-white/10"
+                                        )}
+                                    >
+                                        <mode.icon className={cn("w-5 h-5", rotationMode === mode.id ? "text-primary" : "text-white/20")} />
+                                        <div className="space-y-0.5">
+                                            <p className={cn("font-bold text-[11px]", rotationMode === mode.id ? "text-primary" : "text-white/90")}>
+                                                {mode.title}
+                                            </p>
+                                        </div>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Matchmaking Algorithm */}
                         <div className="space-y-3">
                             <Label className="text-sm font-bold text-white px-1">รูปแบบการจัดคู่ (Algorithm)</Label>
                             <div className="grid grid-cols-1 gap-2.5">
                                 {[
                                     { id: 'random', title: 'สุ่มทั่วไป (Random)', desc: 'เน้นความเร็ว สุ่มทุกคนในคิวเท่าๆ กัน', icon: Icons.shuffle },
-                                    { id: 'double_rotation', title: 'เข้า 2 ออก 2 (2-Game Rotation)', desc: 'เล่นคนละ 2 เกมวนกันไป (ผู้ชนะอยู่ต่อในเกมแรก)', icon: Icons.refresh },
                                     { id: 'split_level', title: 'แยกตามมือ (Split Level)', desc: 'จัดคนเก่งไว้สนามหน้า แยกมือเบาไวสนามหลัง', icon: Icons.mapPin },
                                     { id: 'balanced_mix', title: 'คละมือสมดุล (Mixed Levels)', desc: 'จับคู่มือโปรคู่มือใหม่ ทีมสูสี ตีสนุกขึ้น', icon: Icons.users }
                                 ].map((mode) => (
