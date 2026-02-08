@@ -35,6 +35,8 @@ type Match = {
     team2: Player[];
     score1?: number;
     score2?: number;
+    team1Games?: number; // Games played consecutively on this court
+    team2Games?: number;
 };
 
 type Court = {
@@ -43,7 +45,7 @@ type Court = {
     currentMatch: Match | null;
 };
 
-type MatchmakingMode = 'random' | 'split_level' | 'balanced_mix';
+type MatchmakingMode = 'random' | 'split_level' | 'balanced_mix' | 'double_rotation';
 
 // --- Helpers ---
 const getLevelWeight = (level: string) => {
@@ -538,45 +540,41 @@ export default function ActiveCompetitionPage() {
         for (let court of newCourts) {
             if (pool.length < 4) break;
 
-            let p1, p2, p3, p4;
+            let p1: Player, p2: Player, p3: Player, p4: Player;
 
             if (matchmakingMode === 'split_level') {
-                // Top pool goes to this court. 
-                // Since we iterate court 1 -> N, Court 1 gets best players.
                 p1 = pool.shift()!;
                 p2 = pool.shift()!;
                 p3 = pool.shift()!;
                 p4 = pool.shift()!;
             } else if (matchmakingMode === 'balanced_mix') {
-                // Best pairs with Worst
                 p1 = pool.shift()!;
-                p4 = pool.pop()!; // Weakest
-
+                p4 = pool.pop()!;
                 if (pool.length >= 2) {
-                    p2 = pool.shift()!; // 2nd Best
-                    p3 = pool.pop()!; // 2nd Weakest
+                    p2 = pool.shift()!;
+                    p3 = pool.pop()!;
                 } else {
-                    // Not enough for balanced, just take remaining
                     p2 = pool.shift()!;
                     p3 = pool.shift()!;
                 }
             } else {
-                // Random
                 p1 = pool.shift()!;
                 p2 = pool.shift()!;
                 p3 = pool.shift()!;
                 p4 = pool.shift()!;
             }
 
+            const t1 = (matchmakingMode === 'split_level' || matchmakingMode === 'double_rotation') ? [p1, p2] : [p1, p4];
+            const t2 = (matchmakingMode === 'split_level' || matchmakingMode === 'double_rotation') ? [p3, p4] : [p2, p3];
+
             court.currentMatch = {
                 id: `match-${Date.now()}-${court.id}`,
                 courtId: court.id,
                 status: 'waiting',
-                team1: [p1, p4], // Mix High-Low in same team for balanced? Or just opponent? 
-                // User said "Mix Weak", usually means Pro+Beginner vs Pro+Beginner
-                // In Balanced Mix logic above: p1(Best) & p4(Worst) vs p2(2nd) & p3(2nd Worst)
-                // This makes fair teams.
-                team2: [p2, p3]
+                team1: t1,
+                team2: t2,
+                team1Games: 0,
+                team2Games: 0
             };
         }
 
@@ -640,7 +638,9 @@ export default function ActiveCompetitionPage() {
             courtId: courtId,
             status: 'waiting',
             team1: [shuffled4[0], shuffled4[1]],
-            team2: [shuffled4[2], shuffled4[3]]
+            team2: [shuffled4[2], shuffled4[3]],
+            team1Games: 0,
+            team2Games: 0
         };
 
         const newCourts = courts.map(c => c.id === courtId ? { ...c, currentMatch: newMatch } : c);
@@ -782,20 +782,103 @@ export default function ActiveCompetitionPage() {
         const court = courts.find(c => c.id.toString() === finishMatchId);
         if (!court || !court.currentMatch) return;
 
-        const allPlayersInMatch = [...court.currentMatch.team1, ...court.currentMatch.team2];
-        const updatedPlayers = allPlayersInMatch.map(p => ({
-            ...p,
-            roundsPlayed: (p.roundsPlayed || 0) + 1,
-            lastPlayedTime: Date.now()
-        }));
+        const match = court.currentMatch;
+        const s1 = parseInt(score1 || "0");
+        const s2 = parseInt(score2 || "0");
+        const team1Won = s1 > s2;
 
-        const newQueue = [...queue, ...updatedPlayers];
-        const newCourts = courts.map(c => c.id === court.id ? { ...c, currentMatch: null } : c);
+        if (matchmakingMode === 'double_rotation') {
+            const team1Played = match.team1Games || 0;
+            const team2Played = match.team2Games || 0;
 
-        setQueue(newQueue);
-        setCourts(newCourts);
-        updateRemoteState(newCourts, newQueue);
+            let playersLeaving: Player[] = [];
+            let playersStaying: Player[] = [];
+            let stayingTeamGames = 0;
+
+            if (team1Played === 0 && team2Played === 0) {
+                // Game 1: Winner stays
+                if (team1Won) {
+                    playersStaying = match.team1;
+                    playersLeaving = match.team2;
+                } else {
+                    playersStaying = match.team2;
+                    playersLeaving = match.team1;
+                }
+                stayingTeamGames = 1;
+            } else {
+                // Subsequent games: 2 in 2 out
+                if (team1Played === 1) {
+                    playersLeaving = match.team1;
+                    playersStaying = match.team2;
+                } else {
+                    playersLeaving = match.team2;
+                    playersStaying = match.team1;
+                }
+                stayingTeamGames = 1;
+            }
+
+            const updatedLeaving = playersLeaving.map(p => ({
+                ...p,
+                roundsPlayed: (p.roundsPlayed || 0) + 1,
+                lastPlayedTime: Date.now()
+            }));
+
+            const updatedStaying = playersStaying.map(p => ({
+                ...p,
+                roundsPlayed: (p.roundsPlayed || 0) + 1,
+                lastPlayedTime: Date.now()
+            }));
+
+            const sortedQueue = [...queue].filter(p => !p.isPaused).sort((a, b) => {
+                if (a.roundsPlayed !== b.roundsPlayed) return a.roundsPlayed - b.roundsPlayed;
+                return a.lastPlayedTime - b.lastPlayedTime;
+            });
+
+            if (sortedQueue.length >= 2) {
+                const newIn = sortedQueue.slice(0, 2);
+                const remainingQueue = [...sortedQueue.slice(2), ...queue.filter(p => p.isPaused), ...updatedLeaving];
+
+                const nextMatch: Match = {
+                    id: `match-${Date.now()}-${court.id}`,
+                    courtId: court.id,
+                    status: 'waiting',
+                    team1: updatedStaying,
+                    team2: newIn,
+                    team1Games: stayingTeamGames,
+                    team2Games: 0
+                };
+
+                const newCourts = courts.map(c => c.id === court.id ? { ...c, currentMatch: nextMatch } : c);
+                setQueue(remainingQueue);
+                setCourts(newCourts);
+                updateRemoteState(newCourts, remainingQueue);
+            } else {
+                const newQueue = [...queue, ...updatedLeaving, ...updatedStaying];
+                const newCourts = courts.map(c => c.id === court.id ? { ...c, currentMatch: null } : c);
+                setQueue(newQueue);
+                setCourts(newCourts);
+                updateRemoteState(newCourts, newQueue);
+            }
+        } else {
+            // Default Matchmaking Logic
+            const allPlayersInMatch = [...match.team1, ...match.team2];
+            const updatedPlayers = allPlayersInMatch.map(p => ({
+                ...p,
+                roundsPlayed: (p.roundsPlayed || 0) + 1,
+                lastPlayedTime: Date.now()
+            }));
+
+            const newQueue = [...queue, ...updatedPlayers];
+            const newCourts = courts.map(c => c.id === court.id ? { ...c, currentMatch: null } : c);
+
+            setQueue(newQueue);
+            setCourts(newCourts);
+            updateRemoteState(newCourts, newQueue);
+        }
+
         setFinishMatchId(null);
+        setScore1("");
+        setScore2("");
     };
 
     if (isLoading) {
@@ -1057,6 +1140,11 @@ export default function ActiveCompetitionPage() {
 
                                                 {/* Team 1 */}
                                                 <div className="flex-1 flex flex-col items-start gap-2 min-w-0">
+                                                    {matchmakingMode === 'double_rotation' && (
+                                                        <div className="px-1.5 py-0.5 rounded bg-primary/10 text-[8px] font-bold text-primary uppercase tracking-tighter">
+                                                            {match.team1Games === 1 ? 'เกมที่ 2' : 'เกมที่ 1'}
+                                                        </div>
+                                                    )}
                                                     {match.team1.map((p, idx) => (
                                                         <div
                                                             key={p.id}
@@ -1079,6 +1167,11 @@ export default function ActiveCompetitionPage() {
 
                                                 {/* Team 2 */}
                                                 <div className="flex-1 flex flex-col items-end gap-2 min-w-0">
+                                                    {matchmakingMode === 'double_rotation' && (
+                                                        <div className="px-1.5 py-0.5 rounded bg-blue-500/10 text-[8px] font-bold text-blue-500 uppercase tracking-tighter">
+                                                            {match.team2Games === 1 ? 'เกมที่ 2' : 'เกมที่ 1'}
+                                                        </div>
+                                                    )}
                                                     {match.team2.map((p, idx) => (
                                                         <div
                                                             key={p.id}
@@ -1480,14 +1573,14 @@ function HostSettingsDialog({
                                 <div className="flex-1 h-3 bg-white/10 rounded-full overflow-hidden relative">
                                     <div
                                         className="absolute top-0 left-0 h-full bg-primary transition-all duration-500 ease-out shadow-[0_0_10px_rgba(255,165,0,0.5)]"
-                                        style={{ width: `${(courts.length / 10) * 100}%` }}
+                                        style={{ width: `${(courts.length / 20) * 100}%` }}
                                     />
                                 </div>
                                 <Button
                                     variant="outline"
                                     size="icon"
                                     onClick={() => updateCourtCount(courts.length + 1)}
-                                    disabled={courts.length >= 10}
+                                    disabled={courts.length >= 20}
                                     className="h-11 w-11 rounded-xl border-white/10 bg-white/5 hover:bg-white/10 transition-colors"
                                 >
                                     <Icons.plus className="w-5 h-5" />
@@ -1501,6 +1594,7 @@ function HostSettingsDialog({
                             <div className="grid grid-cols-1 gap-2.5">
                                 {[
                                     { id: 'random', title: 'สุ่มทั่วไป (Random)', desc: 'เน้นความเร็ว สุ่มทุกคนในคิวเท่าๆ กัน', icon: Icons.shuffle },
+                                    { id: 'double_rotation', title: 'เข้า 2 ออก 2 (2-Game Rotation)', desc: 'เล่นคนละ 2 เกมวนกันไป (ผู้ชนะอยู่ต่อในเกมแรก)', icon: Icons.refresh },
                                     { id: 'split_level', title: 'แยกตามมือ (Split Level)', desc: 'จัดคนเก่งไว้สนามหน้า แยกมือเบาไวสนามหลัง', icon: Icons.mapPin },
                                     { id: 'balanced_mix', title: 'คละมือสมดุล (Mixed Levels)', desc: 'จับคู่มือโปรคู่มือใหม่ ทีมสูสี ตีสนุกขึ้น', icon: Icons.users }
                                 ].map((mode) => (
