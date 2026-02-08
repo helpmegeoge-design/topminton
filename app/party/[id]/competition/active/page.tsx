@@ -23,6 +23,7 @@ type Player = {
     level: string; // Skill Level
     roundsPlayed: number;
     lastPlayedTime: number; // For fairness logic
+    isPaused?: boolean;
 };
 
 type Match = {
@@ -145,6 +146,15 @@ export default function ActiveCompetitionPage() {
         setCourts(newCourts);
         setEditingCourtId(null);
         updateRemoteState(newCourts, queue);
+    };
+
+    const handleTogglePause = (playerId: string) => {
+        if (!isHost) return;
+        const newQueue = queue.map(p =>
+            p.id === playerId ? { ...p, isPaused: !p.isPaused } : p
+        );
+        setQueue(newQueue);
+        if (roomId) updateRemoteState(courts, newQueue);
     };
 
     const [isAddGuestOpen, setIsAddGuestOpen] = useState(false);
@@ -511,7 +521,11 @@ export default function ActiveCompetitionPage() {
 
         // Gather everyone (on court + in queue)
         const allOnCourt = courts.flatMap(c => c.currentMatch ? [...c.currentMatch.team1, ...c.currentMatch.team2] : []);
-        const pool = [...queue, ...allOnCourt];
+
+        // Separate paused players from active pool
+        const pausedPlayers = queue.filter(p => p.isPaused);
+        const activePool = [...queue.filter(p => !p.isPaused), ...allOnCourt];
+        const pool = [...activePool];
 
         if (matchmakingMode === 'random') {
             pool.sort(() => 0.5 - Math.random());
@@ -566,9 +580,10 @@ export default function ActiveCompetitionPage() {
             };
         }
 
+        const finalQueue = [...pool, ...pausedPlayers];
         setCourts(newCourts);
-        setQueue(pool);
-        updateRemoteState(newCourts, pool);
+        setQueue(finalQueue);
+        updateRemoteState(newCourts, finalQueue);
     };
 
     const updateCourtCount = (count: number) => {
@@ -607,8 +622,17 @@ export default function ActiveCompetitionPage() {
             return a.lastPlayedTime - b.lastPlayedTime;
         });
 
-        const nextPlayers = sortedQueue.slice(0, 4);
-        const remainingQueue = sortedQueue.slice(4);
+        const activePlayersInQueue = sortedQueue.filter(p => !p.isPaused);
+        const pausedPlayersInQueue = sortedQueue.filter(p => p.isPaused);
+
+        if (activePlayersInQueue.length < 4) {
+            alert("ผู้เล่นที่ไม่ถูกพัก (Active) ไม่เพียงพอสำหรับจัดคู่ใหม่ (ต้องการ 4 คน)");
+            return;
+        }
+
+        const nextPlayers = activePlayersInQueue.slice(0, 4);
+        const remainingActive = activePlayersInQueue.slice(4);
+        const remainingQueue = [...remainingActive, ...pausedPlayersInQueue];
         const shuffled4 = nextPlayers.sort(() => 0.5 - Math.random());
 
         const newMatch: Match = {
@@ -1151,7 +1175,7 @@ export default function ActiveCompetitionPage() {
                                     <div className="flex items-center justify-between gap-4">
                                         {/* Team 1 Preview */}
                                         <div className="flex-1 space-y-3">
-                                            {[...queue].sort((a, b) => {
+                                            {[...queue].filter(p => !p.isPaused).sort((a, b) => {
                                                 if (a.roundsPlayed !== b.roundsPlayed) return a.roundsPlayed - b.roundsPlayed;
                                                 return a.lastPlayedTime - b.lastPlayedTime;
                                             }).slice(0, 2).map(p => (
@@ -1161,9 +1185,13 @@ export default function ActiveCompetitionPage() {
                                                     className="flex items-center gap-3 bg-white/5 p-2 rounded-xl border border-white/5 cursor-pointer hover:bg-white/10 transition-all active:scale-95"
                                                 >
                                                     <Image src={p.avatar_url || "/placeholder.svg"} alt={p.name} width={32} height={32} className="rounded-full bg-muted" />
-                                                    <span className="text-sm font-medium truncate flex-1 flex items-center gap-1.5">
+                                                    <span className={cn(
+                                                        "text-sm font-medium truncate flex-1 flex items-center gap-1.5",
+                                                        p.isPaused && "opacity-50"
+                                                    )}>
                                                         {p.name}
                                                         <span className={cn("w-1.5 h-1.5 rounded-full shrink-0", getLevelColor(p.level))} />
+                                                        {p.isPaused && <Badge variant="secondary" className="scale-75 origin-left h-4 px-1 text-[8px] bg-red-500/10 text-red-500 border-red-500/20">PAUSED</Badge>}
                                                     </span>
                                                 </div>
                                             ))}
@@ -1175,7 +1203,7 @@ export default function ActiveCompetitionPage() {
 
                                         {/* Team 2 Preview */}
                                         <div className="flex-1 space-y-3">
-                                            {[...queue].sort((a, b) => {
+                                            {[...queue].filter(p => !p.isPaused).sort((a, b) => {
                                                 if (a.roundsPlayed !== b.roundsPlayed) return a.roundsPlayed - b.roundsPlayed;
                                                 return a.lastPlayedTime - b.lastPlayedTime;
                                             }).slice(2, 4).map(p => (
@@ -1185,9 +1213,13 @@ export default function ActiveCompetitionPage() {
                                                     className="flex items-center gap-3 bg-white/5 p-2 rounded-xl border border-white/5 cursor-pointer hover:bg-white/10 transition-all active:scale-95"
                                                 >
                                                     <Image src={p.avatar_url || "/placeholder.svg"} alt={p.name} width={32} height={32} className="rounded-full bg-muted" />
-                                                    <span className="text-sm font-medium truncate flex-1 flex items-center gap-1.5">
+                                                    <span className={cn(
+                                                        "text-sm font-medium truncate flex-1 flex items-center gap-1.5",
+                                                        p.isPaused && "opacity-50"
+                                                    )}>
                                                         {p.name}
                                                         <span className={cn("w-1.5 h-1.5 rounded-full shrink-0", getLevelColor(p.level))} />
+                                                        {p.isPaused && <Badge variant="secondary" className="scale-75 origin-left h-4 px-1 text-[8px] bg-red-500/10 text-red-500 border-red-500/20">PAUSED</Badge>}
                                                     </span>
                                                 </div>
                                             ))}
@@ -1241,17 +1273,39 @@ export default function ActiveCompetitionPage() {
                                         <div className={cn("absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-background", getLevelColor(p.level))} />
                                     </div>
 
-                                    <div className="min-w-0 w-full">
-                                        <p className="font-semibold text-sm truncate w-full px-1">
-                                            {p.name}
-                                        </p>
-                                        <div className="flex items-center justify-center gap-2 mt-1">
-                                            <Badge variant="secondary" className="h-5 px-1.5 text-[10px] bg-white/5 hover:bg-white/10 text-muted-foreground">
-                                                รอ {Math.floor((Date.now() - (p.lastPlayedTime || Date.now())) / 60000)} น.
-                                            </Badge>
-                                            <Badge variant="outline" className="h-5 px-1.5 text-[10px] border-primary/20 text-primary bg-primary/5">
-                                                {p.roundsPlayed} เกม
-                                            </Badge>
+                                    <div className={cn("min-w-0 w-full transition-opacity", p.isPaused && "opacity-50")}>
+                                        <div className="flex items-center justify-between gap-1 w-full px-1">
+                                            <p className="font-semibold text-sm truncate">
+                                                {p.name}
+                                            </p>
+                                            {isHost && (
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleTogglePause(p.id);
+                                                    }}
+                                                    className={cn(
+                                                        "p-1 rounded-md transition-colors",
+                                                        p.isPaused ? "text-red-500 hover:bg-red-500/10" : "text-muted-foreground hover:bg-white/10"
+                                                    )}
+                                                >
+                                                    {p.isPaused ? <Icons.play className="w-3 h-3" /> : <Icons.pause className="w-3 h-3" />}
+                                                </button>
+                                            )}
+                                        </div>
+                                        <div className="flex items-center justify-center gap-1 mt-1">
+                                            {p.isPaused ? (
+                                                <Badge variant="secondary" className="h-5 px-1.5 text-[8px] bg-red-500/10 text-red-500 border-red-500/20 font-bold">พ้นพักชั่วคราว</Badge>
+                                            ) : (
+                                                <>
+                                                    <Badge variant="secondary" className="h-5 px-1.5 text-[10px] bg-white/5 hover:bg-white/10 text-muted-foreground">
+                                                        รอ {Math.floor((Date.now() - (p.lastPlayedTime || Date.now())) / 60000)} น.
+                                                    </Badge>
+                                                    <Badge variant="outline" className="h-5 px-1.5 text-[10px] border-primary/20 text-primary bg-primary/5">
+                                                        {p.roundsPlayed} เกม
+                                                    </Badge>
+                                                </>
+                                            )}
                                         </div>
                                     </div>
                                 </GlassCard>

@@ -1659,6 +1659,14 @@ export const Icons = {
   verified: CheckIcon,
   swords: TrophyIcon,
   play: PlayIcon,
+  pause: function PauseIcon({ className, size = 24 }: IconProps) {
+    return (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={cn("text-current", className)}>
+        <rect x="6" y="4" width="4" height="16" rx="1" />
+        <rect x="14" y="4" width="4" height="16" rx="1" />
+      </svg>
+    );
+  },
   link: LinkIcon,
 };
 
