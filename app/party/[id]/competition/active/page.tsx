@@ -839,19 +839,27 @@ export default function ActiveCompetitionPage() {
                 stayingTeamGames = 1;
             }
 
-            const updatedLeaving = playersLeaving.map(p => ({
-                ...p,
-                roundsPlayed: (p.roundsPlayed || 0) + 1,
-                wins: (p.wins || 0) + (playersLeaving === (team1Won ? match.team1 : match.team2) ? 1 : 0),
-                lastPlayedTime: Date.now()
-            }));
+            const updatedLeaving = playersLeaving.map(p => {
+                const isTeam1 = match.team1.some(tp => tp.id === p.id);
+                const won = isTeam1 ? team1Won : !team1Won;
+                return {
+                    ...p,
+                    roundsPlayed: (p.roundsPlayed || 0) + 1,
+                    wins: (p.wins || 0) + (won ? 1 : 0),
+                    lastPlayedTime: Date.now()
+                };
+            });
 
-            const updatedStaying = playersStaying.map(p => ({
-                ...p,
-                roundsPlayed: (p.roundsPlayed || 0) + 1,
-                wins: (p.wins || 0) + (playersStaying === (team1Won ? match.team1 : match.team2) ? 1 : 0),
-                lastPlayedTime: Date.now()
-            }));
+            const updatedStaying = playersStaying.map(p => {
+                const isTeam1 = match.team1.some(tp => tp.id === p.id);
+                const won = isTeam1 ? team1Won : !team1Won;
+                return {
+                    ...p,
+                    roundsPlayed: (p.roundsPlayed || 0) + 1,
+                    wins: (p.wins || 0) + (won ? 1 : 0),
+                    lastPlayedTime: Date.now()
+                };
+            });
 
             const sortedQueue = [...queue].filter(p => !p.isPaused).sort((a, b) => {
                 if (a.roundsPlayed !== b.roundsPlayed) return a.roundsPlayed - b.roundsPlayed;
@@ -1421,10 +1429,10 @@ export default function ActiveCompetitionPage() {
                                             ) : (
                                                 <>
                                                     <Badge variant="secondary" className="h-5 px-1.5 text-[10px] bg-white/5 hover:bg-white/10 text-muted-foreground">
-                                                        รอ {Math.floor((Date.now() - (p.lastPlayedTime || Date.now())) / 60000)} น.
+                                                        รอ {Math.floor((p.lastPlayedTime ? (Date.now() - p.lastPlayedTime) : 0) / 60000)} น.
                                                     </Badge>
                                                     <Badge variant="outline" className="h-5 px-1.5 text-[10px] border-primary/20 text-primary bg-primary/5">
-                                                        {p.roundsPlayed} เกม
+                                                        W: {p.wins} | {p.roundsPlayed} เกม
                                                     </Badge>
                                                 </>
                                             )}
