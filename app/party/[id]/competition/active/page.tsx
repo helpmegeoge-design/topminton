@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
 import { Icons } from "@/components/icons";
@@ -72,7 +72,7 @@ const getLevelColor = (level: string) => {
     return 'bg-green-500'; // Default: light, beginner
 };
 
-export default function ActiveCompetitionPage() {
+function ActiveCompetitionContent() {
     const params = useParams();
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -1589,6 +1589,18 @@ export default function ActiveCompetitionPage() {
                 handleAutoAssign={handleAutoAssign}
             />
         </AppShell>
+    );
+}
+
+export default function ActiveCompetitionPage() {
+    return (
+        <Suspense fallback={
+            <div className="flex items-center justify-center min-h-screen">
+                <LoadingShuttlecock />
+            </div>
+        }>
+            <ActiveCompetitionContent />
+        </Suspense>
     );
 }
 

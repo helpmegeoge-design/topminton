@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
 import { createClient } from "@/lib/supabase/client";
@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 
-export default function BillPage() {
+function BillContent() {
   const params = useParams();
   const searchParams = useSearchParams();
   const id = params.id as string;
@@ -453,5 +453,19 @@ export default function BillPage() {
         </div>
       </div>
     </AppShell>
+  );
+}
+
+export default function BillPage() {
+  return (
+    <Suspense fallback={
+      <AppShell hideNav>
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <Icons.spinner className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      </AppShell>
+    }>
+      <BillContent />
+    </Suspense>
   );
 }

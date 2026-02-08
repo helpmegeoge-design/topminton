@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import html2canvas from "html2canvas";
@@ -27,7 +27,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { format } from "date-fns";
 import { th } from "date-fns/locale";
 
-export default function CostCalculatorPage() {
+function CostCalculatorContent() {
     const searchParams = useSearchParams();
     const [courtPrice, setCourtPrice] = useState<string>("");
     const [shuttlePrice, setShuttlePrice] = useState<string>("");
@@ -1884,5 +1884,20 @@ ${parseFloat(otherPrice) > 0 ? `🥤 ค่าน้ำ/อื่นๆ: ${parse
                 )}
             </div>
         </AppShell >
+    );
+}
+
+export default function CostCalculatorPage() {
+    return (
+        <Suspense fallback={
+            <div className="flex items-center justify-center min-h-screen bg-background">
+                <div className="text-center">
+                    <Icons.spinner className="w-10 h-10 animate-spin text-primary mx-auto mb-4" />
+                    <p className="text-muted-foreground animate-pulse">กำลังโหลดเครื่องคิดเลข...</p>
+                </div>
+            </div>
+        }>
+            <CostCalculatorContent />
+        </Suspense>
     );
 }

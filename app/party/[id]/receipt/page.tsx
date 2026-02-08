@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
 import { createClient } from "@/lib/supabase/client";
@@ -11,7 +11,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 
-export default function ReceiptPage() {
+function ReceiptContent() {
     const params = useParams();
     const searchParams = useSearchParams();
     const id = params.id as string;
@@ -200,5 +200,17 @@ export default function ReceiptPage() {
                 </div>
             </div>
         </AppShell>
+    );
+}
+
+export default function ReceiptPage() {
+    return (
+        <Suspense fallback={
+            <div className="flex items-center justify-center min-h-[60vh]">
+                <Icons.spinner className="w-8 h-8 animate-spin text-primary" />
+            </div>
+        }>
+            <ReceiptContent />
+        </Suspense>
     );
 }
