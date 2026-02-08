@@ -11,6 +11,7 @@ import { createClient } from "@/lib/supabase/client";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import { Switch } from "@/components/ui/switch";
 import { LoadingShuttlecock } from "@/components/ui/loading-shuttlecock";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -22,6 +23,7 @@ type Player = {
     avatar_url: string | null;
     level: string; // Skill Level
     roundsPlayed: number;
+    wins: number;
     lastPlayedTime: number; // For fairness logic
     isPaused?: boolean;
 };
@@ -106,6 +108,9 @@ export default function ActiveCompetitionPage() {
     // Court Name Edit State
     const [editingCourtId, setEditingCourtId] = useState<number | null>(null);
     const [tempCourtName, setTempCourtName] = useState("");
+
+    // Finish Competition State
+    const [isFinishConfirmed, setIsFinishConfirmed] = useState(false);
 
     // --- Persistence Logic ---
     const updateRemoteState = async (newCourts: Court[], newQueue: Player[]) => {
@@ -199,6 +204,7 @@ export default function ActiveCompetitionPage() {
                 avatar_url: null,
                 level: guestLevel,
                 roundsPlayed: 0,
+                wins: 0,
                 lastPlayedTime: 0
             };
             const newQueue = [...queue, newPlayer];
@@ -306,6 +312,7 @@ export default function ActiveCompetitionPage() {
                 avatar_url: m.user?.avatar_url || null,
                 level: m.skill_level || m.user?.skill_level || "beginner",
                 roundsPlayed: 0,
+                wins: 0,
                 lastPlayedTime: 0
             }));
             setPlayers(mappedPlayers);
@@ -454,6 +461,7 @@ export default function ActiveCompetitionPage() {
                 avatar_url: m.user?.avatar_url || null,
                 level: m.skill_level || m.user?.skill_level || "beginner",
                 roundsPlayed: 0,
+                wins: 0,
                 lastPlayedTime: 0
             }));
 
@@ -834,12 +842,14 @@ export default function ActiveCompetitionPage() {
             const updatedLeaving = playersLeaving.map(p => ({
                 ...p,
                 roundsPlayed: (p.roundsPlayed || 0) + 1,
+                wins: (p.wins || 0) + (playersLeaving === (team1Won ? match.team1 : match.team2) ? 1 : 0),
                 lastPlayedTime: Date.now()
             }));
 
             const updatedStaying = playersStaying.map(p => ({
                 ...p,
                 roundsPlayed: (p.roundsPlayed || 0) + 1,
+                wins: (p.wins || 0) + (playersStaying === (team1Won ? match.team1 : match.team2) ? 1 : 0),
                 lastPlayedTime: Date.now()
             }));
 
@@ -876,11 +886,16 @@ export default function ActiveCompetitionPage() {
         } else {
             // Default Matchmaking Logic
             const allPlayersInMatch = [...match.team1, ...match.team2];
-            const updatedPlayers = allPlayersInMatch.map(p => ({
-                ...p,
-                roundsPlayed: (p.roundsPlayed || 0) + 1,
-                lastPlayedTime: Date.now()
-            }));
+            const updatedPlayers = allPlayersInMatch.map(p => {
+                const isTeam1 = match.team1.some(tp => tp.id === p.id);
+                const won = isTeam1 ? team1Won : !team1Won;
+                return {
+                    ...p,
+                    roundsPlayed: (p.roundsPlayed || 0) + 1,
+                    wins: (p.wins || 0) + (won ? 1 : 0),
+                    lastPlayedTime: Date.now()
+                };
+            });
 
             const newQueue = [...queue, ...updatedPlayers];
             const newCourts = courts.map(c => c.id === court.id ? { ...c, currentMatch: null } : c);
@@ -1421,6 +1436,39 @@ export default function ActiveCompetitionPage() {
                     )}
                 </div>
 
+                {/* Finish Competition Section */}
+                {isHost && (
+                    <div className="mt-12 mb-20 px-4">
+                        <GlassCard className="p-6 border-red-500/20 bg-red-500/5">
+                            <div className="flex flex-col items-center gap-6">
+                                <div className="flex items-center gap-3">
+                                    <Switch
+                                        id="finish-competition"
+                                        checked={isFinishConfirmed}
+                                        onCheckedChange={setIsFinishConfirmed}
+                                        className="data-[state=checked]:bg-red-500"
+                                    />
+                                    <Label htmlFor="finish-competition" className="text-sm font-bold text-white cursor-pointer select-none">
+                                        ยืนยันว่าต้องการสิ้นสุดการแข่งขัน
+                                    </Label>
+                                </div>
+
+                                {isFinishConfirmed && (
+                                    <Button
+                                        onClick={() => {
+                                            // Handle Finish - Navigate to Ranking
+                                            router.push(`/party/${id}/competition/ranking`);
+                                        }}
+                                        className="w-full h-14 bg-red-600 hover:bg-red-700 text-white font-black text-lg rounded-2xl shadow-xl shadow-red-500/20 animate-in zoom-in slide-in-from-top-4 duration-300"
+                                    >
+                                        <Icons.swords className="w-6 h-6 mr-2" />
+                                        สิ้นสุดการแข่งขัน
+                                    </Button>
+                                )}
+                            </div>
+                        </GlassCard>
+                    </div>
+                )}
             </div>
 
             {/* Finish Match Dialog */}
